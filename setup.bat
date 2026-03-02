@@ -21,7 +21,7 @@ set "ROOT=%~dp0"
 set "ROOT=%ROOT:~0,-1%"
 
 :: ----- 1. Find Python -----
-echo [1/5] Checking for Python...
+echo [1/6] Checking for Python...
 where python3 >nul 2>&1
 if %errorlevel%==0 (
     set "PY=python3"
@@ -52,7 +52,7 @@ echo   Found: %PY_VER%
 
 :: ----- 2. Create virtual environment -----
 echo.
-echo [2/5] Setting up virtual environment...
+echo [2/6] Setting up virtual environment...
 if exist "%ROOT%\venv\Scripts\activate.bat" (
     echo   venv already exists, skipping creation.
 ) else (
@@ -70,7 +70,7 @@ call "%ROOT%\venv\Scripts\activate.bat"
 
 :: ----- 3. Install dependencies -----
 echo.
-echo [3/5] Installing Python dependencies...
+echo [3/6] Installing Python dependencies...
 pip install --upgrade pip >nul 2>&1
 pip install -r "%ROOT%\requirements.txt"
 if %errorlevel% neq 0 (
@@ -83,7 +83,7 @@ if %errorlevel% neq 0 (
 
 :: ----- 4. Download LibreHardwareMonitor DLLs -----
 echo.
-echo [4/5] Downloading LibreHardwareMonitor...
+echo [4/6] Downloading LibreHardwareMonitor...
 if exist "%ROOT%\lib\LibreHardwareMonitorLib.dll" (
     echo   LHM DLLs already present, skipping.
 ) else (
@@ -145,7 +145,7 @@ if exist "%ROOT%\lib\LibreHardwareMonitorLib.dll" (
 
 :: ----- 5. Verify installation -----
 echo.
-echo [5/5] Verifying installation...
+echo [5/6] Verifying installation...
 echo.
 python -m agent.verify
 set "VERIFY_EXIT=%errorlevel%"
@@ -153,37 +153,37 @@ echo.
 
 if %VERIFY_EXIT% equ 2 (
     color 0C
-    echo   =============================================
-    echo    Setup finished with ERRORS
-    echo    Fix the issues above before running.
-    echo   =============================================
+    echo   [!] Verification found ERRORS — see above.
+    echo   Fix the issues before running HumWatch.
 ) else if %VERIFY_EXIT% equ 1 (
     color 0E
-    echo   =============================================
-    echo    Setup complete (with warnings)
-    echo    HumWatch will run, but some features
-    echo    may be limited. See warnings above.
-    echo   =============================================
+    echo   [i] Verification passed with warnings.
+    echo   HumWatch will run, but some features may be limited.
 ) else (
     color 0A
-    echo   =============================================
-    echo    Setup complete!  All checks passed.
-    echo   =============================================
+    echo   [+] All checks passed.
 )
 echo.
 
-:: ----- 6. Offer to install as background service -----
+:: ----- 6. Background service -----
 echo.
-echo   Install HumWatch as a background service?
-echo   It will auto-start on every reboot with no console window.
+echo   =============================================
+echo   [6/6] Windows Background Service
+echo   =============================================
 echo.
-set /p INSTALL_SVC="   Install service now? (Y/n): "
+echo   HumWatch can run as a Windows service that:
+echo     - Starts automatically on every reboot
+echo     - Runs silently in the background (no window)
+echo     - Auto-restarts if it crashes
+echo.
+set /p INSTALL_SVC="   Install as a background service? (Y/n): "
 if /i "%INSTALL_SVC%"=="n" goto :skip_service
 if /i "%INSTALL_SVC%"=="no" goto :skip_service
 
 :: Need admin for service install — auto-elevate
 echo.
 echo   [*] Installing background service (needs admin)...
+echo   A UAC prompt may appear — click Yes to allow.
 echo.
 powershell -Command "Start-Process powershell -Verb RunAs -Wait -ArgumentList '-ExecutionPolicy Bypass -File \"%ROOT%\scripts\install-service.ps1\"'"
 if %errorlevel% neq 0 (
@@ -207,6 +207,10 @@ echo     powershell -ExecutionPolicy Bypass -File scripts\install-service.ps1
 echo.
 
 :done
-echo   Dashboard: http://localhost:9100
+echo.
+echo   =============================================
+echo    Setup Complete!
+echo    Dashboard: http://localhost:9100
+echo   =============================================
 echo.
 pause
