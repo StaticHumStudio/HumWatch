@@ -113,14 +113,42 @@ echo   =============================================
 echo    Setup complete!
 echo   =============================================
 echo.
-echo   To run HumWatch:
+
+:: ----- 5. Offer to install as background service -----
+echo.
+echo   Install HumWatch as a background service?
+echo   It will auto-start on every reboot with no console window.
+echo.
+set /p INSTALL_SVC="   Install service now? (Y/n): "
+if /i "%INSTALL_SVC%"=="n" goto :skip_service
+if /i "%INSTALL_SVC%"=="no" goto :skip_service
+
+:: Need admin for service install — auto-elevate
+echo.
+echo   [*] Installing background service (needs admin)...
+echo.
+powershell -Command "Start-Process powershell -Verb RunAs -Wait -ArgumentList '-ExecutionPolicy Bypass -File \"%ROOT%\scripts\install-service.ps1\"'"
+if %errorlevel% neq 0 (
+    echo.
+    echo   [WARN] Service install may have failed.
+    echo   You can retry manually as Admin:
+    echo     powershell -ExecutionPolicy Bypass -File scripts\install-service.ps1
+    echo.
+)
+goto :done
+
+:skip_service
+echo.
+echo   Skipped service install. To run manually:
 echo.
 echo     run.bat              (as Administrator for full sensors)
 echo     run-no-admin.bat     (without admin, psutil-only)
 echo.
-echo   Then open: http://localhost:9100
+echo   To install as a service later:
+echo     powershell -ExecutionPolicy Bypass -File scripts\install-service.ps1
 echo.
-echo   To install as a Windows service (auto-start on boot):
-echo     Run as Admin: scripts\install-service.ps1
+
+:done
+echo   Dashboard: http://localhost:9100
 echo.
 pause

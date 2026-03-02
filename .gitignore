@@ -14,6 +14,9 @@ logs/
 # LHM DLLs (downloaded by setup.bat)
 lib/
 
+# NSSM (downloaded by install-service.ps1)
+tools/
+
 # Build output
 dist/
 
