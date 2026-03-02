@@ -47,6 +47,7 @@ async def lifespan(app: FastAPI):
     # Import and start services (deferred to avoid circular imports)
     from agent.services.machine_info import update_machine_info
     from agent.services.retention import start_retention_loop
+    from agent.services.discovery import start_discovery_loop
     from agent.collector import start_collector, stop_collector
 
     await update_machine_info()
@@ -54,6 +55,7 @@ async def lifespan(app: FastAPI):
     # Start background tasks
     retention_task = asyncio.create_task(start_retention_loop())
     await start_collector()
+    discovery_task = asyncio.create_task(start_discovery_loop())
 
     logger.info("HumWatch ready at http://0.0.0.0:%d", config.port)
 
@@ -62,7 +64,12 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("HumWatch shutting down...")
     await stop_collector()
+    discovery_task.cancel()
     retention_task.cancel()
+    try:
+        await discovery_task
+    except asyncio.CancelledError:
+        pass
     try:
         await retention_task
     except asyncio.CancelledError:
@@ -97,6 +104,7 @@ def create_app() -> FastAPI:
     from agent.routes.history import router as history_router
     from agent.routes.processes import router as processes_router
     from agent.routes.sse import router as sse_router
+    from agent.routes.peers import router as peers_router
 
     app.include_router(health_router, prefix="/api")
     app.include_router(config_router, prefix="/api")
@@ -105,6 +113,7 @@ def create_app() -> FastAPI:
     app.include_router(history_router, prefix="/api")
     app.include_router(processes_router, prefix="/api")
     app.include_router(sse_router, prefix="/api")
+    app.include_router(peers_router, prefix="/api")
 
     # Mount static files AFTER API routes so /api/* isn't shadowed
     static_dir = PROJECT_ROOT / "static"

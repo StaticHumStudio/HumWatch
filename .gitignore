@@ -14,6 +14,9 @@ logs/
 # LHM DLLs (downloaded by setup.bat)
 lib/
 
+# Build output
+dist/
+
 # IDE
 .vscode/
 .idea/

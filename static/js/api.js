@@ -75,6 +75,10 @@ HumWatch.api.getProcessesHistory = function(from, to) {
     return HumWatch.api._fetch('/api/processes/history?' + params);
 };
 
+HumWatch.api.getPeers = function() {
+    return HumWatch.api._fetch('/api/peers');
+};
+
 // Remote machine API calls (for multi-machine view)
 HumWatch.api.remoteHealth = function(baseUrl) {
     return HumWatch.api._fetchWithTimeout(baseUrl, '/api/health', 3000);
