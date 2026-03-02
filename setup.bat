@@ -90,20 +90,57 @@ if exist "%ROOT%\lib\LibreHardwareMonitorLib.dll" (
     powershell -ExecutionPolicy Bypass -Command ^
         "$ProgressPreference='SilentlyContinue'; " ^
         "$v='0.9.4'; " ^
-        "$url=\"https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v$v/LibreHardwareMonitor-net472.zip\"; " ^
-        "$zip=\"$env:TEMP\lhm.zip\"; " ^
-        "$ext=\"$env:TEMP\lhm-ext\"; " ^
+        "$url='https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v' + $v + '/LibreHardwareMonitor-net472.zip'; " ^
+        "$zip=Join-Path $env:TEMP 'lhm.zip'; " ^
+        "$ext=Join-Path $env:TEMP 'lhm-ext'; " ^
         "$lib='%ROOT%\lib'; " ^
         "New-Item -ItemType Directory -Path $lib -Force | Out-Null; " ^
-        "Write-Host '  Downloading LHM v0.9.4...'; " ^
         "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; " ^
-        "try { Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing } catch { Write-Host '  [WARN] Download failed. LHM sensors won''t be available.'; exit 0 }; " ^
-        "Expand-Archive -Path $zip -DestinationPath $ext -Force; " ^
-        "Get-ChildItem -Path $ext -Recurse -Filter 'LibreHardwareMonitorLib.dll' | Select-Object -First 1 | ForEach-Object { Copy-Item $_.FullName \"$lib\LibreHardwareMonitorLib.dll\" -Force }; " ^
-        "Get-ChildItem -Path $ext -Recurse -Filter 'HidSharp.dll' | Select-Object -First 1 | ForEach-Object { Copy-Item $_.FullName \"$lib\HidSharp.dll\" -Force }; " ^
-        "Remove-Item $zip -Force -EA SilentlyContinue; " ^
-        "Remove-Item $ext -Recurse -Force -EA SilentlyContinue; " ^
-        "Write-Host '  Done.'"
+        "$ok=$false; " ^
+        "Write-Host '  Downloading LHM v0.9.4 (attempt 1: Invoke-WebRequest)...'; " ^
+        "try { Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing -TimeoutSec 60; $ok=$true } catch { Write-Host \"  Attempt 1 failed: $_\" }; " ^
+        "if (-not $ok) { " ^
+        "  Write-Host '  Downloading LHM v0.9.4 (attempt 2: WebClient)...'; " ^
+        "  try { (New-Object System.Net.WebClient).DownloadFile($url, $zip); $ok=$true } catch { Write-Host \"  Attempt 2 failed: $_\" } " ^
+        "}; " ^
+        "if (-not $ok) { " ^
+        "  Write-Host '  Downloading LHM v0.9.4 (attempt 3: curl)...'; " ^
+        "  try { curl.exe -sL -o $zip $url --connect-timeout 30; if (Test-Path $zip) { $ok=$true } } catch { Write-Host \"  Attempt 3 failed: $_\" } " ^
+        "}; " ^
+        "if ($ok -and (Test-Path $zip)) { " ^
+        "  $zipSize=(Get-Item $zip).Length; " ^
+        "  if ($zipSize -lt 100000) { Write-Host '  [WARN] Downloaded file too small — possibly corrupt or blocked.'; $ok=$false; Remove-Item $zip -Force -EA SilentlyContinue } " ^
+        "}; " ^
+        "if ($ok) { " ^
+        "  Write-Host '  Extracting...'; " ^
+        "  if (Test-Path $ext) { Remove-Item $ext -Recurse -Force }; " ^
+        "  Expand-Archive -Path $zip -DestinationPath $ext -Force; " ^
+        "  Get-ChildItem -Path $ext -Recurse -Filter 'LibreHardwareMonitorLib.dll' | Select-Object -First 1 | ForEach-Object { Copy-Item $_.FullName (Join-Path $lib 'LibreHardwareMonitorLib.dll') -Force }; " ^
+        "  Get-ChildItem -Path $ext -Recurse -Filter 'HidSharp.dll' | Select-Object -First 1 | ForEach-Object { Copy-Item $_.FullName (Join-Path $lib 'HidSharp.dll') -Force }; " ^
+        "  Remove-Item $zip -Force -EA SilentlyContinue; " ^
+        "  Remove-Item $ext -Recurse -Force -EA SilentlyContinue " ^
+        "} else { " ^
+        "  Write-Host ''; Write-Host '  [WARN] All download attempts failed.' " ^
+        "}; " ^
+        "if (Test-Path (Join-Path $lib 'LibreHardwareMonitorLib.dll')) { " ^
+        "  $dllSize=(Get-Item (Join-Path $lib 'LibreHardwareMonitorLib.dll')).Length / 1KB; " ^
+        "  if ($dllSize -gt 100) { Write-Host \"  Done. LibreHardwareMonitorLib.dll ($([int]$dllSize) KB)\" } " ^
+        "  else { Write-Host '  [WARN] DLL is suspiciously small — may be corrupt.' } " ^
+        "} else { " ^
+        "  Write-Host ''; " ^
+        "  Write-Host '  ============================================'; " ^
+        "  Write-Host '  LibreHardwareMonitor download FAILED.'; " ^
+        "  Write-Host '  Without LHM you will only get basic metrics'; " ^
+        "  Write-Host '  (CPU load, RAM, disk, network).'; " ^
+        "  Write-Host '  No temps, GPU, fans, or voltages.'; " ^
+        "  Write-Host ''; " ^
+        "  Write-Host '  To fix manually:'; " ^
+        "  Write-Host '    1. Download from: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases'; " ^
+        "  Write-Host '    2. Extract LibreHardwareMonitorLib.dll and HidSharp.dll'; " ^
+        "  Write-Host '    3. Place them in: %ROOT%\lib\'; " ^
+        "  Write-Host '  ============================================'; " ^
+        "  Write-Host '' " ^
+        "}"
 )
 
 :: ----- 5. Verify installation -----

@@ -1,4 +1,3 @@
-#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
     Downloads LibreHardwareMonitor DLLs required by HumWatch.
@@ -6,6 +5,8 @@
 .DESCRIPTION
     Fetches LibreHardwareMonitorLib.dll and HidSharp.dll from the official
     LibreHardwareMonitor GitHub releases and places them in the lib/ directory.
+    No admin privileges required for downloading — admin is only needed at
+    runtime for hardware sensor access.
 
 .NOTES
     Run once after cloning the repo:
@@ -43,16 +44,55 @@ if (Test-Path $DllPath) {
     }
 }
 
-# Download release zip
-Write-Host "[*] Downloading LHM v${LHM_VERSION}..." -ForegroundColor Yellow
+# Download release zip (with fallback methods)
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$downloaded = $false
+
+Write-Host "[*] Downloading LHM v${LHM_VERSION} (Invoke-WebRequest)..." -ForegroundColor Yellow
 try {
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -Uri $RELEASE_URL -OutFile $TempZip -UseBasicParsing
+    $ProgressPreference = 'SilentlyContinue'
+    Invoke-WebRequest -Uri $RELEASE_URL -OutFile $TempZip -UseBasicParsing -TimeoutSec 60
+    $downloaded = $true
     Write-Host "[+] Download complete" -ForegroundColor Green
 } catch {
-    Write-Host "[!] Download failed: $_" -ForegroundColor Red
+    Write-Host "[!] Invoke-WebRequest failed: $_" -ForegroundColor Yellow
+}
+
+if (-not $downloaded) {
+    Write-Host "[*] Retrying with WebClient..." -ForegroundColor Yellow
+    try {
+        (New-Object System.Net.WebClient).DownloadFile($RELEASE_URL, $TempZip)
+        $downloaded = $true
+        Write-Host "[+] Download complete" -ForegroundColor Green
+    } catch {
+        Write-Host "[!] WebClient failed: $_" -ForegroundColor Yellow
+    }
+}
+
+if (-not $downloaded) {
+    Write-Host "[*] Retrying with curl..." -ForegroundColor Yellow
+    try {
+        curl.exe -sL -o $TempZip $RELEASE_URL --connect-timeout 30
+        if (Test-Path $TempZip) { $downloaded = $true; Write-Host "[+] Download complete" -ForegroundColor Green }
+    } catch {
+        Write-Host "[!] curl failed: $_" -ForegroundColor Yellow
+    }
+}
+
+if (-not $downloaded) {
+    Write-Host "[!] All download methods failed." -ForegroundColor Red
     Write-Host "    You can manually download from:" -ForegroundColor Yellow
     Write-Host "    $RELEASE_URL" -ForegroundColor Cyan
+    exit 1
+}
+
+# Verify the zip isn't corrupt/truncated
+$zipSize = (Get-Item $TempZip).Length
+if ($zipSize -lt 100000) {
+    Write-Host "[!] Downloaded file is too small ($([int]($zipSize/1KB)) KB) — may be corrupt or blocked." -ForegroundColor Red
+    Write-Host "    You can manually download from:" -ForegroundColor Yellow
+    Write-Host "    $RELEASE_URL" -ForegroundColor Cyan
+    Remove-Item $TempZip -Force -ErrorAction SilentlyContinue
     exit 1
 }
 
