@@ -1,0 +1,89 @@
+/**
+ * HumWatch — Light Theme
+ * Warm off-white background with blue accents.
+ */
+:root {
+    /* Backgrounds */
+    --hw-bg-primary: #f5f3ef;
+    --hw-bg-secondary: #eae7e1;
+    --hw-bg-card: #ffffff;
+    --hw-bg-sidebar: #1e1e28;
+    --hw-bg-input: #eae7e1;
+    --hw-bg-hover: rgba(0, 0, 0, 0.04);
+
+    /* Text */
+    --hw-text-primary: #1a1a2e;
+    --hw-text-secondary: #555566;
+    --hw-text-tertiary: #888899;
+    --hw-text-sidebar: #c8c8d0;
+
+    /* Accents */
+    --hw-accent-primary: #3b82f6;
+    --hw-accent-secondary: #2dd4a8;
+    --hw-accent-gold: #d4a843;
+
+    /* Status */
+    --hw-status-ok: #22c55e;
+    --hw-status-warn: #f59e0b;
+    --hw-status-critical: #ef4444;
+    --hw-status-offline: #94a3b8;
+
+    /* Borders */
+    --hw-border-color: #d4d0ca;
+    --hw-border-subtle: #e8e4de;
+
+    /* Shadows */
+    --hw-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --hw-shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+    /* Gauge */
+    --hw-gauge-track: #d4d0ca;
+    --hw-gauge-cold: #3b82f6;
+    --hw-gauge-warm: #f59e0b;
+    --hw-gauge-hot: #ef4444;
+
+    /* Scrollbar */
+    --hw-scrollbar-thumb: #c4c0ba;
+    --hw-scrollbar-track: transparent;
+}
+
+body {
+    background-image: none;
+}
+
+.hw-card {
+    border: 1px solid var(--hw-border-subtle);
+}
+
+.hw-table th {
+    background: var(--hw-bg-secondary);
+    color: var(--hw-text-primary);
+}
+
+.hw-table tr:hover td {
+    background: var(--hw-bg-hover);
+}
+
+.hw-btn.active {
+    background: var(--hw-accent-primary);
+    color: #ffffff;
+}
+
+.hw-input {
+    border-color: var(--hw-border-color);
+    color: var(--hw-text-primary);
+}
+
+.hw-input:focus {
+    border-color: var(--hw-accent-primary);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.hw-badge-ok { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
+.hw-badge-warn { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+.hw-badge-critical { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
+.hw-badge-offline { background: rgba(148, 163, 184, 0.12); color: #64748b; }
+
+.hw-progress-bar {
+    background: var(--hw-bg-secondary);
+}

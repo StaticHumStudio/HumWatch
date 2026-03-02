@@ -1,0 +1,21 @@
+{
+    "port": 9100,
+    "collection_interval_seconds": 10,
+    "retention_days": 7,
+    "db_path": "./humwatch.db",
+    "theme_override": null,
+    "alert_thresholds": {
+        "cpu_temp_warn": 85,
+        "cpu_temp_critical": 95,
+        "gpu_temp_warn": 80,
+        "gpu_temp_critical": 90,
+        "ram_percent_warn": 85,
+        "ram_percent_critical": 95,
+        "disk_percent_warn": 85,
+        "disk_percent_critical": 95,
+        "battery_low_warn": 20,
+        "battery_low_critical": 10
+    },
+    "process_snapshot_count": 10,
+    "enable_categories": ["cpu", "gpu", "memory", "disk", "network", "fan", "battery", "system"]
+}

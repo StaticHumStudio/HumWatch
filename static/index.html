@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HumWatch</title>
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="/css/theme.css">
+    <link rel="stylesheet" href="/css/layout.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link id="theme-override" rel="stylesheet" href="">
+</head>
+<body>
+    <div class="hw-app">
+        <!-- Sidebar Navigation -->
+        <nav class="hw-sidebar" id="sidebar">
+            <div class="hw-sidebar-header">
+                <h1>HumWatch</h1>
+                <div class="hw-tagline">What hums beneath the shell.</div>
+            </div>
+
+            <div class="hw-nav" id="nav-items">
+                <a class="hw-nav-item active" href="#/overview" data-page="overview">
+                    <i data-lucide="activity"></i>
+                    <span>Overview</span>
+                </a>
+                <a class="hw-nav-item" href="#/cpu" data-page="cpu">
+                    <i data-lucide="cpu"></i>
+                    <span>CPU</span>
+                </a>
+                <a class="hw-nav-item" href="#/gpu" data-page="gpu">
+                    <i data-lucide="monitor"></i>
+                    <span>GPU</span>
+                </a>
+                <a class="hw-nav-item" href="#/memory" data-page="memory">
+                    <i data-lucide="database"></i>
+                    <span>Memory</span>
+                </a>
+                <a class="hw-nav-item" href="#/disk" data-page="disk">
+                    <i data-lucide="hard-drive"></i>
+                    <span>Disk</span>
+                </a>
+                <a class="hw-nav-item" href="#/network" data-page="network">
+                    <i data-lucide="wifi"></i>
+                    <span>Network</span>
+                </a>
+                <a class="hw-nav-item hw-nav-unavailable" href="#/battery" data-page="battery" id="nav-battery">
+                    <i data-lucide="battery-medium"></i>
+                    <span>Battery</span>
+                </a>
+
+                <div class="hw-nav-separator"></div>
+
+                <a class="hw-nav-item" href="#/processes" data-page="processes">
+                    <i data-lucide="list"></i>
+                    <span>Processes</span>
+                </a>
+                <a class="hw-nav-item" href="#/machines" data-page="machines">
+                    <i data-lucide="server"></i>
+                    <span>Machines</span>
+                </a>
+                <a class="hw-nav-item" href="#/settings" data-page="settings">
+                    <i data-lucide="settings"></i>
+                    <span>Settings</span>
+                </a>
+            </div>
+
+            <div class="hw-sse-status" id="sse-status">
+                <span class="hw-sse-dot" id="sse-dot"></span>
+                <span id="sse-label">Connecting...</span>
+            </div>
+
+            <div class="hw-sidebar-footer">
+                <a href="https://statichum.studio" target="_blank" rel="noopener">
+                    &#8212; A Static Hum Studio Production &#8212;
+                </a>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="hw-main" id="app-content">
+            <div class="hw-loading"><div class="hw-spinner"></div></div>
+        </main>
+
+        <!-- Mobile Bottom Navigation -->
+        <nav class="hw-mobile-nav" id="mobile-nav">
+            <div class="hw-mobile-nav-items">
+                <a class="hw-mobile-nav-item active" href="#/overview" data-page="overview">
+                    <i data-lucide="activity"></i>
+                    <span>Overview</span>
+                </a>
+                <a class="hw-mobile-nav-item" href="#/cpu" data-page="cpu">
+                    <i data-lucide="cpu"></i>
+                    <span>CPU</span>
+                </a>
+                <a class="hw-mobile-nav-item" href="#/memory" data-page="memory">
+                    <i data-lucide="database"></i>
+                    <span>Memory</span>
+                </a>
+                <a class="hw-mobile-nav-item" href="#/processes" data-page="processes">
+                    <i data-lucide="list"></i>
+                    <span>Procs</span>
+                </a>
+                <a class="hw-mobile-nav-item" href="#/machines" data-page="machines">
+                    <i data-lucide="server"></i>
+                    <span>Machines</span>
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- JS Utilities -->
+    <script src="/js/utils/format.js"></script>
+    <script src="/js/utils/time.js"></script>
+    <script src="/js/utils/theme.js"></script>
+
+    <!-- JS Core -->
+    <script src="/js/api.js"></script>
+    <script src="/js/sse.js"></script>
+    <script src="/js/charts.js"></script>
+    <script src="/js/gauges.js"></script>
+
+    <!-- Page Modules -->
+    <script src="/js/pages/overview.js"></script>
+    <script src="/js/pages/cpu.js"></script>
+    <script src="/js/pages/gpu.js"></script>
+    <script src="/js/pages/memory.js"></script>
+    <script src="/js/pages/disk.js"></script>
+    <script src="/js/pages/network.js"></script>
+    <script src="/js/pages/battery.js"></script>
+    <script src="/js/pages/processes.js"></script>
+    <script src="/js/pages/machines.js"></script>
+    <script src="/js/pages/settings.js"></script>
+
+    <!-- App Router (must be last) -->
+    <script src="/js/app.js"></script>
+</body>
+</html>

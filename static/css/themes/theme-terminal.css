@@ -1,0 +1,175 @@
+/**
+ * HumWatch — Terminal Theme
+ * Green-on-black, monospace everywhere.
+ */
+:root {
+    /* Backgrounds */
+    --hw-bg-primary: #000000;
+    --hw-bg-secondary: #0a0a0a;
+    --hw-bg-card: #0d1117;
+    --hw-bg-sidebar: #000000;
+    --hw-bg-input: #0d1117;
+    --hw-bg-hover: rgba(0, 255, 65, 0.06);
+
+    /* Text */
+    --hw-text-primary: #00ff41;
+    --hw-text-secondary: #00cc33;
+    --hw-text-tertiary: #008f24;
+    --hw-text-sidebar: #00cc33;
+
+    /* Accents */
+    --hw-accent-primary: #00ff41;
+    --hw-accent-secondary: #00ff41;
+    --hw-accent-gold: #00ff41;
+
+    /* Status */
+    --hw-status-ok: #00ff41;
+    --hw-status-warn: #ffff00;
+    --hw-status-critical: #ff0040;
+    --hw-status-offline: #555555;
+
+    /* Borders */
+    --hw-border-color: #1a3a1a;
+    --hw-border-subtle: #0f280f;
+
+    /* Shadows */
+    --hw-shadow-card: 0 0 8px rgba(0, 255, 65, 0.05);
+    --hw-shadow-elevated: 0 0 16px rgba(0, 255, 65, 0.08);
+
+    /* Gauge */
+    --hw-gauge-track: #1a3a1a;
+    --hw-gauge-cold: #00ff41;
+    --hw-gauge-warm: #ffff00;
+    --hw-gauge-hot: #ff0040;
+
+    /* Scrollbar */
+    --hw-scrollbar-thumb: #1a3a1a;
+    --hw-scrollbar-track: transparent;
+}
+
+body,
+body * {
+    font-family: 'JetBrains Mono', 'Courier New', monospace !important;
+}
+
+body {
+    background-image: none;
+}
+
+.hw-card {
+    border: 1px solid var(--hw-border-color);
+    border-radius: 0;
+}
+
+.hw-card-header {
+    border-bottom-color: var(--hw-border-color);
+}
+
+.hw-card-title::before {
+    content: '> ';
+    color: var(--hw-text-tertiary);
+}
+
+.hw-table th {
+    background: var(--hw-bg-secondary);
+    color: var(--hw-accent-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+}
+
+.hw-table td {
+    border-color: var(--hw-border-subtle);
+}
+
+.hw-table tr:hover td {
+    background: var(--hw-bg-hover);
+}
+
+.hw-btn {
+    border-radius: 0;
+    border: 1px solid var(--hw-border-color);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 11px;
+}
+
+.hw-btn.active,
+.hw-btn-primary {
+    background: var(--hw-accent-primary);
+    color: #000000;
+    border-color: var(--hw-accent-primary);
+}
+
+.hw-input {
+    border-radius: 0;
+    border-color: var(--hw-border-color);
+    color: var(--hw-accent-primary);
+}
+
+.hw-input:focus {
+    border-color: var(--hw-accent-primary);
+    box-shadow: 0 0 0 1px var(--hw-accent-primary);
+}
+
+.hw-input::placeholder {
+    color: var(--hw-text-tertiary);
+}
+
+.hw-badge {
+    border-radius: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 10px;
+}
+
+.hw-badge-ok { background: rgba(0, 255, 65, 0.15); color: #00ff41; }
+.hw-badge-warn { background: rgba(255, 255, 0, 0.15); color: #ffff00; }
+.hw-badge-critical { background: rgba(255, 0, 64, 0.15); color: #ff0040; }
+.hw-badge-offline { background: rgba(85, 85, 85, 0.3); color: #555555; }
+
+.hw-progress-bar {
+    background: var(--hw-bg-secondary);
+    border-radius: 0;
+}
+
+.hw-progress-fill {
+    border-radius: 0;
+}
+
+.hw-page-header h2::before {
+    content: '# ';
+    color: var(--hw-text-tertiary);
+}
+
+.hw-subtitle::before {
+    content: '// ';
+    color: var(--hw-text-tertiary);
+}
+
+/* Blinking cursor effect on active nav */
+.hw-nav-item.active::after {
+    content: '_';
+    animation: blink 1s step-end infinite;
+    margin-left: 4px;
+}
+
+@keyframes blink {
+    50% { opacity: 0; }
+}
+
+/* Scanline effect */
+body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 255, 65, 0.015) 2px,
+        rgba(0, 255, 65, 0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+}

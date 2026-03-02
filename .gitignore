@@ -1,0 +1,19 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# HumWatch runtime
+humwatch.db
+humwatch.db-shm
+humwatch.db-wal
+humwatch.log
+logs/
+
+# LHM DLLs (downloaded by setup.bat)
+lib/
+
+# IDE
+.vscode/
+.idea/

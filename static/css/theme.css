@@ -1,0 +1,129 @@
+/* HumWatch Default Theme — Static Hum Studio Aesthetic */
+/* "What hums beneath the shell." */
+
+:root {
+    /* === CORE PALETTE === */
+    --hw-bg-primary: #0a0a0f;
+    --hw-bg-secondary: #12121a;
+    --hw-bg-tertiary: #1a1a26;
+    --hw-bg-hover: #22222e;
+
+    --hw-text-primary: #e8e6e1;
+    --hw-text-secondary: #9a9890;
+    --hw-text-tertiary: #6a6860;
+
+    --hw-accent-primary: #c9a84c;
+    --hw-accent-primary-dim: #7a6a30;
+    --hw-accent-secondary: #4ecdc4;
+    --hw-accent-secondary-dim: #2a6e68;
+    --hw-accent-glow: #5bff8f;
+
+    /* === STATUS COLORS === */
+    --hw-status-ok: #4ecdc4;
+    --hw-status-warn: #f0a830;
+    --hw-status-critical: #e74c3c;
+    --hw-status-offline: #555555;
+
+    /* === GAUGE COLORS === */
+    --hw-gauge-cold: #4ecdc4;
+    --hw-gauge-warm: #c9a84c;
+    --hw-gauge-hot: #e74c3c;
+
+    /* === CHART PALETTE === */
+    --hw-chart-1: #c9a84c;
+    --hw-chart-2: #4ecdc4;
+    --hw-chart-3: #5bff8f;
+    --hw-chart-4: #e74c3c;
+    --hw-chart-5: #9b59b6;
+    --hw-chart-6: #3498db;
+    --hw-chart-7: #e67e22;
+    --hw-chart-8: #1abc9c;
+
+    /* === TYPOGRAPHY === */
+    --hw-font-display: 'JetBrains Mono', 'Fira Code', monospace;
+    --hw-font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    --hw-font-size-xs: 0.7rem;
+    --hw-font-size-sm: 0.8rem;
+    --hw-font-size-md: 0.95rem;
+    --hw-font-size-lg: 1.2rem;
+    --hw-font-size-xl: 1.6rem;
+    --hw-font-size-xxl: 2.4rem;
+
+    /* === SPACING === */
+    --hw-space-xs: 4px;
+    --hw-space-sm: 8px;
+    --hw-space-md: 16px;
+    --hw-space-lg: 24px;
+    --hw-space-xl: 32px;
+    --hw-space-xxl: 48px;
+
+    /* === BORDERS & RADIUS === */
+    --hw-border-color: #2a2a36;
+    --hw-border-radius-sm: 4px;
+    --hw-border-radius-md: 8px;
+    --hw-border-radius-lg: 12px;
+
+    /* === EFFECTS === */
+    --hw-shadow-card: 0 2px 12px rgba(0, 0, 0, 0.4);
+    --hw-shadow-glow: 0 0 20px rgba(201, 168, 76, 0.15);
+    --hw-transition-fast: 150ms ease;
+    --hw-transition-normal: 300ms ease;
+}
+
+/* === GLOBAL RESET & BASE === */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    font-family: var(--hw-font-body);
+    font-size: var(--hw-font-size-md);
+    color: var(--hw-text-primary);
+    background-color: var(--hw-bg-primary);
+    line-height: 1.5;
+    min-height: 100vh;
+    /* Subtle noise texture */
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.02'/%3E%3C/svg%3E");
+}
+
+a {
+    color: var(--hw-accent-primary);
+    text-decoration: none;
+    transition: color var(--hw-transition-fast);
+}
+a:hover {
+    color: var(--hw-accent-glow);
+}
+
+h1, h2, h3, h4 {
+    font-family: var(--hw-font-display);
+    color: var(--hw-accent-primary);
+    font-weight: 500;
+}
+
+code, .mono {
+    font-family: var(--hw-font-display);
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: var(--hw-bg-primary);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--hw-border-color);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--hw-text-tertiary);
+}
