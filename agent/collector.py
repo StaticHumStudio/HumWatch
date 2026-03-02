@@ -273,13 +273,21 @@ def _map_cpu_sensor(data, s_type, s_name, s_value, SensorType):
         name_lower = s_name.lower()
         if "package" in name_lower or "total" in name_lower:
             data["cpu_temp_package"] = s_value
+        elif "tctl" in name_lower or "tdie" in name_lower:
+            # AMD Ryzen reports package temp as "Core (Tctl/Tdie)"
+            data["cpu_temp_package"] = s_value
         elif "core" in name_lower:
             # Extract core number: "CPU Core #1" -> 0 (zero-indexed)
-            try:
-                idx = int("".join(c for c in s_name if c.isdigit())) - 1
-                data[f"cpu_temp_core_{max(0, idx)}"] = s_value
-            except (ValueError, IndexError):
-                pass
+            digits = "".join(c for c in s_name if c.isdigit())
+            if digits:
+                try:
+                    idx = int(digits) - 1
+                    data[f"cpu_temp_core_{max(0, idx)}"] = s_value
+                except (ValueError, IndexError):
+                    pass
+            elif "cpu_temp_package" not in data:
+                # Single "Core" temp with no index — treat as package temp
+                data["cpu_temp_package"] = s_value
     elif s_type == SensorType.Clock:
         name_lower = s_name.lower()
         if "core" in name_lower:
