@@ -21,7 +21,7 @@ set "ROOT=%~dp0"
 set "ROOT=%ROOT:~0,-1%"
 
 :: ----- 1. Find Python -----
-echo [1/4] Checking for Python...
+echo [1/5] Checking for Python...
 where python3 >nul 2>&1
 if %errorlevel%==0 (
     set "PY=python3"
@@ -52,7 +52,7 @@ echo   Found: %PY_VER%
 
 :: ----- 2. Create virtual environment -----
 echo.
-echo [2/4] Setting up virtual environment...
+echo [2/5] Setting up virtual environment...
 if exist "%ROOT%\venv\Scripts\activate.bat" (
     echo   venv already exists, skipping creation.
 ) else (
@@ -70,7 +70,7 @@ call "%ROOT%\venv\Scripts\activate.bat"
 
 :: ----- 3. Install dependencies -----
 echo.
-echo [3/4] Installing Python dependencies...
+echo [3/5] Installing Python dependencies...
 pip install --upgrade pip >nul 2>&1
 pip install -r "%ROOT%\requirements.txt"
 if %errorlevel% neq 0 (
@@ -83,7 +83,7 @@ if %errorlevel% neq 0 (
 
 :: ----- 4. Download LibreHardwareMonitor DLLs -----
 echo.
-echo [4/4] Downloading LibreHardwareMonitor...
+echo [4/5] Downloading LibreHardwareMonitor...
 if exist "%ROOT%\lib\LibreHardwareMonitorLib.dll" (
     echo   LHM DLLs already present, skipping.
 ) else (
@@ -106,15 +106,36 @@ if exist "%ROOT%\lib\LibreHardwareMonitorLib.dll" (
         "Write-Host '  Done.'"
 )
 
-:: ----- Done -----
+:: ----- 5. Verify installation -----
 echo.
-color 0A
-echo   =============================================
-echo    Setup complete!
-echo   =============================================
+echo [5/5] Verifying installation...
+echo.
+python -m agent.verify
+set "VERIFY_EXIT=%errorlevel%"
 echo.
 
-:: ----- 5. Offer to install as background service -----
+if %VERIFY_EXIT% equ 2 (
+    color 0C
+    echo   =============================================
+    echo    Setup finished with ERRORS
+    echo    Fix the issues above before running.
+    echo   =============================================
+) else if %VERIFY_EXIT% equ 1 (
+    color 0E
+    echo   =============================================
+    echo    Setup complete (with warnings)
+    echo    HumWatch will run, but some features
+    echo    may be limited. See warnings above.
+    echo   =============================================
+) else (
+    color 0A
+    echo   =============================================
+    echo    Setup complete!  All checks passed.
+    echo   =============================================
+)
+echo.
+
+:: ----- 6. Offer to install as background service -----
 echo.
 echo   Install HumWatch as a background service?
 echo   It will auto-start on every reboot with no console window.

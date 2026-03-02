@@ -105,6 +105,7 @@ def create_app() -> FastAPI:
     from agent.routes.processes import router as processes_router
     from agent.routes.sse import router as sse_router
     from agent.routes.peers import router as peers_router
+    from agent.routes.debug import router as debug_router
 
     app.include_router(health_router, prefix="/api")
     app.include_router(config_router, prefix="/api")
@@ -114,6 +115,7 @@ def create_app() -> FastAPI:
     app.include_router(processes_router, prefix="/api")
     app.include_router(sse_router, prefix="/api")
     app.include_router(peers_router, prefix="/api")
+    app.include_router(debug_router, prefix="/api")
 
     # Mount static files AFTER API routes so /api/* isn't shadowed
     static_dir = PROJECT_ROOT / "static"

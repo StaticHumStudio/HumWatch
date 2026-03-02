@@ -5,6 +5,7 @@ import time
 import psutil
 from fastapi import APIRouter
 
+from agent.collector import get_lhm_status
 from agent.database import get_db
 
 router = APIRouter()
@@ -24,5 +25,9 @@ async def get_info():
 
     # Add computed uptime
     info["uptime_seconds"] = round(time.time() - psutil.boot_time(), 1)
+
+    # Add LHM status
+    lhm = get_lhm_status()
+    info["lhm_available"] = lhm["lhm_available"]
 
     return info

@@ -172,6 +172,19 @@ $StderrLog = Join-Path $LogDir "humwatch-stderr.log"
 
 Write-Host "[+] Service installed" -ForegroundColor Green
 
+# ── Pre-flight verification ────────────────────────────────────────────
+
+Write-Host ""
+Write-Host "[*] Running pre-flight verification..." -ForegroundColor Yellow
+& $PythonPath -m agent.verify
+$verifyExit = $LASTEXITCODE
+if ($verifyExit -eq 2) {
+    Write-Host ""
+    Write-Host "[!] Verification found errors. Service may not work correctly." -ForegroundColor Red
+    Write-Host "    Fix the issues above, then restart: nssm restart $ServiceName" -ForegroundColor Yellow
+    Write-Host ""
+}
+
 # ── Start service ───────────────────────────────────────────────────────
 
 Write-Host "[*] Starting service..." -ForegroundColor Yellow

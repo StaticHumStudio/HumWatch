@@ -57,6 +57,16 @@ def get_latest_processes() -> List[Dict]:
     return latest_processes
 
 
+def get_lhm_status() -> dict:
+    """Get LHM thread diagnostic info (for /api/debug)."""
+    return {
+        "lhm_available": _lhm_available,
+        "gpu_name": _gpu_name,
+        "lhm_thread_alive": _lhm_thread.is_alive() if _lhm_thread else False,
+        "lhm_queue_size": _lhm_queue.qsize(),
+    }
+
+
 def subscribe() -> asyncio.Queue:
     """Subscribe to real-time metric updates. Returns a queue that receives data each tick."""
     q: asyncio.Queue = asyncio.Queue(maxsize=10)
