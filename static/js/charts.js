@@ -232,3 +232,50 @@ HumWatch.charts.historyToChartData = function(historyArray) {
         return { x: new Date(d.timestamp), y: d.value };
     });
 };
+
+// Apply Exponential Moving Average smoothing to chart data
+HumWatch.charts.emaSmooth = function(data, alpha) {
+    if (!data || data.length < 2) return data;
+    alpha = alpha || 0.3;
+    var result = [{ x: data[0].x, y: data[0].y }];
+    for (var i = 1; i < data.length; i++) {
+        var smoothed = alpha * data[i].y + (1 - alpha) * result[i - 1].y;
+        result.push({ x: data[i].x, y: Math.round(smoothed * 10) / 10 });
+    }
+    return result;
+};
+
+// Compute min/max/avg stats from chart data array
+HumWatch.charts.computeStats = function(data) {
+    if (!data || data.length === 0) return null;
+    var min = Infinity, max = -Infinity, sum = 0;
+    for (var i = 0; i < data.length; i++) {
+        var v = data[i].y;
+        if (v < min) min = v;
+        if (v > max) max = v;
+        sum += v;
+    }
+    return {
+        min: Math.round(min * 10) / 10,
+        max: Math.round(max * 10) / 10,
+        avg: Math.round((sum / data.length) * 10) / 10,
+        count: data.length,
+    };
+};
+
+// Create a threshold reference line dataset (horizontal dashed line)
+HumWatch.charts.thresholdDataset = function(label, value, color, timeRange) {
+    return {
+        label: label,
+        data: timeRange.map(function(t) { return { x: t, y: value }; }),
+        borderColor: color,
+        borderWidth: 1,
+        borderDash: [6, 4],
+        pointRadius: 0,
+        pointHitRadius: 0,
+        tension: 0,
+        backgroundColor: 'transparent',
+        fill: false,
+        order: 999,
+    };
+};

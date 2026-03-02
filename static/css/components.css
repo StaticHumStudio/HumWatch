@@ -152,6 +152,55 @@
     flex-wrap: wrap;
 }
 
+/* === CHART TOOLBAR (toggle buttons alongside time range) === */
+.hw-chart-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--hw-space-sm);
+    flex-wrap: wrap;
+}
+
+.hw-chart-toolbar .hw-toolbar-separator {
+    width: 1px;
+    height: 20px;
+    background: var(--hw-border-color);
+    margin: 0 var(--hw-space-xs);
+}
+
+/* === STATS BAR (min/max/avg inline) === */
+.hw-stats-bar {
+    display: flex;
+    gap: var(--hw-space-lg);
+    padding: var(--hw-space-sm) 0;
+    font-family: var(--hw-font-display);
+    font-size: var(--hw-font-size-xs);
+    color: var(--hw-text-tertiary);
+}
+
+.hw-stats-bar .hw-stat {
+    display: flex;
+    align-items: center;
+    gap: var(--hw-space-xs);
+}
+
+.hw-stats-bar .hw-stat-label {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.hw-stats-bar .hw-stat-value {
+    color: var(--hw-text-primary);
+    font-weight: 500;
+}
+
+.hw-stats-bar .hw-stat-value.warn {
+    color: var(--hw-status-warn);
+}
+
+.hw-stats-bar .hw-stat-value.critical {
+    color: var(--hw-status-critical);
+}
+
 /* === BADGES / STATUS === */
 .hw-badge {
     display: inline-flex;
