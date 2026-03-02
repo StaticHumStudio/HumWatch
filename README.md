@@ -150,7 +150,7 @@ All timestamps are ISO 8601 UTC. History queries are automatically downsampled b
 
 ## License
 
-[MIT](LICENSE) — Copyright (c) 2026 Static Hum Studio
+[GPL-3.0](LICENSE) — Copyright (c) 2026 Static Hum Studio
 
 ---
 
