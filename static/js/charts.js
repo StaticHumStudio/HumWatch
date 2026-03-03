@@ -250,7 +250,12 @@ HumWatch.charts.setData = function(chart, datasetIndex, data) {
 // Convert API history response to Chart.js data format
 HumWatch.charts.historyToChartData = function(historyArray) {
     return historyArray.map(function(d) {
-        return { x: new Date(d.timestamp), y: d.value };
+        var ts = d.timestamp;
+        // Ensure UTC — backend stores UTC but SQLite may omit T/Z
+        if (ts && ts.indexOf('Z') === -1 && ts.indexOf('+') === -1) {
+            ts = ts.replace(' ', 'T') + 'Z';
+        }
+        return { x: new Date(ts), y: d.value };
     });
 };
 

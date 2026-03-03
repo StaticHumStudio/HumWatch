@@ -11,6 +11,17 @@ from agent.services.downsampler import build_history_query, compute_resolution
 router = APIRouter()
 
 
+def _to_utc_iso(ts: str) -> str:
+    """Normalize SQLite timestamp to ISO 8601 with Z suffix."""
+    if not ts:
+        return ts
+    # SQLite stores as "YYYY-MM-DD HH:MM:SS" — convert to "YYYY-MM-DDTHH:MM:SSZ"
+    s = ts.replace(" ", "T")
+    if not s.endswith("Z") and "+" not in s:
+        s += "Z"
+    return s
+
+
 @router.get("/history")
 async def get_history(
     metric: str,
@@ -41,7 +52,7 @@ async def get_history(
     cursor = await db.execute(sql, params)
     rows = await cursor.fetchall()
 
-    data = [{"timestamp": row[0], "value": row[1]} for row in rows]
+    data = [{"timestamp": _to_utc_iso(row[0]), "value": row[1]} for row in rows]
     return data
 
 
@@ -77,6 +88,6 @@ async def get_history_multi(
         sql, params = build_history_query(metric_name, from_ts, to_ts, bucket)
         cursor = await db.execute(sql, params)
         rows = await cursor.fetchall()
-        result[metric_name] = [{"timestamp": row[0], "value": row[1]} for row in rows]
+        result[metric_name] = [{"timestamp": _to_utc_iso(row[0]), "value": row[1]} for row in rows]
 
     return result
