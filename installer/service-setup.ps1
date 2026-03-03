@@ -88,6 +88,24 @@ Write-Log "NSSM:    $NssmPath"
 if (-not (Test-Path $NssmPath))  { Write-Log "ERROR: NSSM not found at $NssmPath"; exit 1 }
 if (-not (Test-Path $PythonPath)) { Write-Log "ERROR: Python not found at $PythonPath"; exit 1 }
 
+# Ensure the embedded Python can find the agent package regardless of CWD.
+# NSSM defaults AppDirectory to the python\ subfolder. Adding ".." to the
+# ._pth file puts the install root (C:\HumWatch) on sys.path so that
+# "python -m agent.main" always works.
+$pthFile = Join-Path $AppDir "python\python312._pth"
+if (Test-Path $pthFile) {
+    $pthContent = Get-Content $pthFile -Raw
+    if ($pthContent -notmatch '(?m)^\.\.$') {
+        $pthContent = $pthContent -replace '(?m)^(\.)$', "`$1`r`n.."
+        Set-Content $pthFile $pthContent -NoNewline
+        Write-Log "Patched python312._pth: added parent-dir (..) to sys.path"
+    } else {
+        Write-Log "python312._pth already includes parent-dir (..)"
+    }
+} else {
+    Write-Log "WARNING: python312._pth not found at $pthFile"
+}
+
 # Remove any stale service
 Remove-HumWatchService
 

@@ -221,13 +221,20 @@ if ($SkipPythonDownload -and (Test-Path "$PyStageDirPath\python.exe")) {
     Expand-Archive -Path $PyEmbedZip -DestinationPath $PyStageDirPath -Force
     Write-Ok "Extracted Python $PythonVersion"
 
-    # Enable site-packages (required for pip)
+    # Enable site-packages (required for pip) and add parent dir to sys.path.
+    # Adding ".." ensures "python -m agent.main" finds the agent package even
+    # when NSSM starts Python from the python\ subfolder instead of the
+    # install root (C:\HumWatch).
     $pthFile = Join-Path $PyStageDirPath "python$PyMajorMinor._pth"
     if (Test-Path $pthFile) {
         $pthContent = Get-Content $pthFile -Raw
         $pthContent = $pthContent -replace '#import site', 'import site'
+        # Ensure ".." is in the path list so the install root is always on sys.path
+        if ($pthContent -notmatch '(?m)^\.\.$') {
+            $pthContent = $pthContent -replace '(?m)^(\.)$', "`$1`r`n.."
+        }
         Set-Content $pthFile $pthContent -NoNewline
-        Write-Ok "Enabled site-packages in python$PyMajorMinor._pth"
+        Write-Ok "Enabled site-packages and parent-dir path in python$PyMajorMinor._pth"
     } else {
         Write-Warn "._pth file not found at: $pthFile"
     }
