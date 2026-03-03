@@ -55,12 +55,12 @@ Without LibreHardwareMonitor, HumWatch runs in psutil-only mode — you get CPU 
 
 HumWatch can run as a background service that starts automatically with Windows.
 
-**Prerequisites:** [NSSM](https://nssm.cc/download) (the Non-Sucking Service Manager) on your PATH.
-
 ```powershell
 # Run as Administrator
 powershell -ExecutionPolicy Bypass -File scripts\install-service.ps1
 ```
+
+The installer will automatically download NSSM if needed, prefer a project-local `venv`, create/install dependencies when `venv` is missing, and configure delayed auto-start + restart recovery for better reboot reliability.
 
 This registers HumWatch as an auto-start service with log rotation. Manage it with:
 
@@ -76,6 +76,23 @@ To remove the service:
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\uninstall-service.ps1
 ```
+
+
+If the service fails to start after install or reboot:
+
+1. Re-run installer as Admin (it now performs a health check and prints recent stderr lines):
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts\install-service.ps1
+   ```
+2. Check service status:
+   ```powershell
+   nssm status HumWatch
+   ```
+3. Review logs in `logs/humwatch-stdout.log` and `logs/humwatch-stderr.log`.
+4. Confirm verification output:
+   ```powershell
+   .\venv\Scripts\python.exe -m agent.verify
+   ```
 
 ## Multi-Machine Setup
 
