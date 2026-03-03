@@ -36,6 +36,8 @@ class GpuSensor(BaseSensor):
             "gpu_vram_used": "MB",
             "gpu_vram_total": "MB",
             "gpu_power": "W",
+            "gpu_temp_hotspot": "°C",
+            "gpu_temp_memory": "°C",
             "gpu_fan_speed": "RPM",
         }
 
