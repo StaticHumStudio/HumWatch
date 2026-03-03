@@ -74,13 +74,16 @@ Remove-HumWatchService
 
 # Install via NSSM
 Write-Log "Installing service via NSSM..."
-$nssmOut = & $NssmPath install $ServiceName $PythonPath "-m" "agent.main" 2>&1
-$nssmOut | ForEach-Object { Write-Log "nssm install: $_" }
-if ($LASTEXITCODE -ne 0) {
-    Write-Log "ERROR: NSSM install exited with code $LASTEXITCODE"
+Start-Process -FilePath $NssmPath -ArgumentList "install",$ServiceName,$PythonPath,"-m agent.main" -Wait -NoNewWindow -PassThru | Out-Null
+Start-Sleep -Seconds 2
+
+# Verify NSSM created the service
+$svc = Get-Service $ServiceName -ErrorAction SilentlyContinue
+if (-not $svc) {
+    Write-Log "ERROR: NSSM install did not create the service."
     exit 1
 }
-Start-Sleep -Seconds 1
+Write-Log "NSSM service created successfully."
 
 # Fix registry: NSSM install doesn't always add the service name to ImagePath
 # (PowerShell calling convention issue). Set it directly.
