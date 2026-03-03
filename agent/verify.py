@@ -122,6 +122,9 @@ def check_lhm_load() -> None:
     except ImportError:
         warn("Skipped — pythonnet not available")
         return
+    except Exception as e:
+        warn(f"Skipped — pythonnet runtime unavailable: {e}")
+        return
 
     dll = PROJECT_ROOT / "lib" / "LibreHardwareMonitorLib"
     try:
