@@ -320,8 +320,7 @@ HumWatch.pages.cpu = {
             var rows = '';
             sortedTimes.forEach(function(ts) {
                 var row = timestamps[ts];
-                var time = new Date(ts + (ts.indexOf('Z') === -1 && ts.indexOf('+') === -1 ? 'Z' : ''));
-                var timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                var timeStr = HumWatch.utils.formatTime(ts);
 
                 rows += '<tr>';
                 rows += '<td>' + timeStr + '</td>';

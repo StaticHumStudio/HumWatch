@@ -7,6 +7,8 @@ HumWatch.pages = HumWatch.pages || {};
 HumWatch.pages.overview = {
     _gauges: [],
     _sparklines: [],
+    _sparklineMap: {},    // key → { chart, valueEl, unit }
+    _retryTimer: null,
     _uptimeInterval: null,
     _bootTime: null,
 
@@ -41,14 +43,8 @@ HumWatch.pages.overview = {
             if (gc) gc.innerHTML = '<div class="hw-empty" style="grid-column:1/-1">Waiting for first data collection\u2026</div>';
         });
 
-        // Load sparkline data
-        var range = HumWatch.utils.getTimeRange('5m');
-        HumWatch.api.getHistoryMulti(
-            ['cpu_load_total', 'mem_percent', 'cpu_temp_package', 'net_recv_rate'],
-            range.from, range.to
-        ).then(function(data) {
-            self._renderSparklines(data);
-        }).catch(function() {});
+        // Load sparkline data (use 15m window for better startup coverage)
+        self._loadSparklines();
     },
 
     destroy: function() {
@@ -56,6 +52,11 @@ HumWatch.pages.overview = {
         this._gauges = [];
         this._sparklines.forEach(function(c) { if (c.destroy) c.destroy(); });
         this._sparklines = [];
+        this._sparklineMap = {};
+        if (this._retryTimer) {
+            clearTimeout(this._retryTimer);
+            this._retryTimer = null;
+        }
         if (this._uptimeInterval) {
             clearInterval(this._uptimeInterval);
             this._uptimeInterval = null;
@@ -86,6 +87,9 @@ HumWatch.pages.overview = {
         });
 
         this._renderBattery(data);
+
+        // Update sparklines with live data
+        this._updateSparklines(data);
     },
 
     _initGauges: function(data) {
@@ -201,22 +205,47 @@ HumWatch.pages.overview = {
             '</div>';
     },
 
+    _sparklineMetrics: [
+        { key: 'cpu_load_total', label: 'CPU Load', unit: '%', color: 0, sseCategory: 'cpu' },
+        { key: 'mem_percent', label: 'RAM Usage', unit: '%', color: 1, sseCategory: 'memory' },
+        { key: 'cpu_temp_package', label: 'CPU Temp', unit: '\u00B0C', color: 3, sseCategory: 'cpu' },
+        { key: 'net_recv_rate', label: 'Net Down', unit: 'MB/s', color: 5, sseCategory: 'network' },
+    ],
+
+    _loadSparklines: function() {
+        var self = this;
+        var range = HumWatch.utils.getTimeRange('15m');
+        var metricKeys = this._sparklineMetrics.map(function(m) { return m.key; });
+
+        HumWatch.api.getHistoryMulti(metricKeys, range.from, range.to).then(function(data) {
+            self._renderSparklines(data);
+
+            // If key metrics came back empty, retry once after 15s
+            var hasTemp = (data['cpu_temp_package'] || []).length > 0;
+            var hasLoad = (data['cpu_load_total'] || []).length > 0;
+            if (!hasTemp && !hasLoad && !self._retryTimer) {
+                self._retryTimer = setTimeout(function() {
+                    self._retryTimer = null;
+                    self._loadSparklines();
+                }, 15000);
+            }
+        }).catch(function() {});
+    },
+
     _renderSparklines: function(data) {
         var container = document.getElementById('ov-sparklines');
         if (!container) return;
         container.innerHTML = '';
         var self = this;
 
-        var metrics = [
-            { key: 'cpu_load_total', label: 'CPU Load', unit: '%', color: 0 },
-            { key: 'mem_percent', label: 'RAM Usage', unit: '%', color: 1 },
-            { key: 'cpu_temp_package', label: 'CPU Temp', unit: '\u00B0C', color: 3 },
-            { key: 'net_recv_rate', label: 'Net Down', unit: 'MB/s', color: 5 },
-        ];
+        // Destroy old sparkline charts
+        this._sparklines.forEach(function(c) { if (c.destroy) c.destroy(); });
+        this._sparklines = [];
+        this._sparklineMap = {};
 
         var colors = HumWatch.charts.getColors().chart;
 
-        metrics.forEach(function(m) {
+        this._sparklineMetrics.forEach(function(m) {
             var points = data[m.key] || [];
             var chartData = HumWatch.charts.historyToChartData(points);
             var lastVal = chartData.length > 0 ? chartData[chartData.length - 1].y : null;
@@ -226,7 +255,7 @@ HumWatch.pages.overview = {
             card.innerHTML =
                 '<div style="font-size:var(--hw-font-size-xs);color:var(--hw-text-tertiary);margin-bottom:4px">' + m.label + '</div>' +
                 '<canvas class="hw-sparkline"></canvas>' +
-                '<div style="font-family:var(--hw-font-display);font-size:var(--hw-font-size-sm);margin-top:4px">' +
+                '<div class="hw-sparkline-value" style="font-family:var(--hw-font-display);font-size:var(--hw-font-size-sm);margin-top:4px">' +
                     HumWatch.utils.formatValue(lastVal, m.unit) +
                 '</div>';
             container.appendChild(card);
@@ -234,6 +263,36 @@ HumWatch.pages.overview = {
             var canvas = card.querySelector('canvas');
             var chart = HumWatch.charts.createSparkline(canvas, chartData, colors[m.color]);
             self._sparklines.push(chart);
+            self._sparklineMap[m.key] = {
+                chart: chart,
+                valueEl: card.querySelector('.hw-sparkline-value'),
+                unit: m.unit,
+            };
+        });
+    },
+
+    _updateSparklines: function(data) {
+        if (!data || !data.categories) return;
+        var cats = data.categories;
+        var ts = data.timestamp ? new Date(data.timestamp) : new Date();
+        var self = this;
+
+        this._sparklineMetrics.forEach(function(m) {
+            var entry = self._sparklineMap[m.key];
+            if (!entry || !entry.chart) return;
+
+            var catData = cats[m.sseCategory];
+            if (!catData) return;
+            var metric = catData[m.key];
+            if (!metric || metric.value == null) return;
+
+            var point = { x: ts, y: metric.value };
+            HumWatch.charts.appendData(entry.chart, 0, point, 60);
+
+            // Update the value label below the sparkline
+            if (entry.valueEl) {
+                entry.valueEl.textContent = HumWatch.utils.formatValue(metric.value, entry.unit);
+            }
         });
     },
 };

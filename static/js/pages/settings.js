@@ -1,5 +1,5 @@
 /**
- * HumWatch — Settings page: theme selector, alert thresholds.
+ * HumWatch — Settings page: theme selector, timezone, alert thresholds.
  */
 window.HumWatch = window.HumWatch || {};
 HumWatch.pages = HumWatch.pages || {};
@@ -16,9 +16,13 @@ HumWatch.pages.settings = {
                     '<div id="settings-theme"></div>' +
                 '</div>' +
                 '<div class="hw-card">' +
-                    '<div class="hw-card-header"><span class="hw-card-title">Alert Thresholds</span></div>' +
-                    '<div id="settings-thresholds"></div>' +
+                    '<div class="hw-card-header"><span class="hw-card-title">Timezone</span></div>' +
+                    '<div id="settings-timezone"></div>' +
                 '</div>' +
+            '</div>' +
+            '<div class="hw-card" style="margin-top:var(--hw-space-md)">' +
+                '<div class="hw-card-header"><span class="hw-card-title">Alert Thresholds</span></div>' +
+                '<div id="settings-thresholds"></div>' +
             '</div>' +
             '<div class="hw-card" style="margin-top:var(--hw-space-md)">' +
                 '<div class="hw-card-header"><span class="hw-card-title">About</span></div>' +
@@ -31,6 +35,7 @@ HumWatch.pages.settings = {
             '</div>';
 
         this._renderThemeSelector(currentTheme);
+        this._renderTimezone();
         this._renderThresholds();
         this._loadAbout();
     },
@@ -59,6 +64,66 @@ HumWatch.pages.settings = {
                 HumWatch.theme.set(radio.value);
                 HumWatch.charts.resetColors();
             });
+        });
+    },
+
+    _renderTimezone: function() {
+        var container = document.getElementById('settings-timezone');
+        if (!container) return;
+
+        var isAuto = HumWatch.utils.isAutoTimezone();
+        var currentTz = HumWatch.utils.getTimezone();
+        var detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+        var html = '<div style="padding:var(--hw-space-sm) 0">';
+        html += '<label style="display:flex;align-items:center;gap:var(--hw-space-sm);padding:var(--hw-space-xs) 0;cursor:pointer;font-size:var(--hw-font-size-sm);color:var(--hw-text-secondary)">';
+        html += '<input type="radio" name="tz-mode" value="auto"' + (isAuto ? ' checked' : '') + '>';
+        html += 'Auto-detect (' + detectedTz + ')';
+        html += '</label>';
+        html += '<label style="display:flex;align-items:center;gap:var(--hw-space-sm);padding:var(--hw-space-xs) 0;cursor:pointer;font-size:var(--hw-font-size-sm);color:var(--hw-text-secondary)">';
+        html += '<input type="radio" name="tz-mode" value="manual"' + (!isAuto ? ' checked' : '') + '>';
+        html += 'Manual';
+        html += '</label>';
+
+        html += '<select class="hw-input" id="tz-select" style="width:100%;margin-top:var(--hw-space-sm)"' + (isAuto ? ' disabled' : '') + '>';
+        HumWatch.utils.timezoneList.forEach(function(tz) {
+            var selected = (!isAuto && currentTz === tz) ? ' selected' : '';
+            html += '<option value="' + tz + '"' + selected + '>' + tz.replace(/_/g, ' ') + '</option>';
+        });
+        html += '</select>';
+
+        html += '<div id="tz-preview" style="font-size:var(--hw-font-size-xs);color:var(--hw-text-tertiary);margin-top:var(--hw-space-sm)">';
+        html += 'Current time: ' + HumWatch.utils.formatTimestamp(new Date());
+        html += '</div>';
+        html += '</div>';
+
+        container.innerHTML = html;
+
+        var select = document.getElementById('tz-select');
+        var preview = document.getElementById('tz-preview');
+
+        // Mode toggle
+        container.querySelectorAll('input[name="tz-mode"]').forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                var manual = radio.value === 'manual';
+                select.disabled = !manual;
+                if (!manual) {
+                    HumWatch.utils.setTimezone('auto');
+                    HumWatch.charts.resetColors();
+                    preview.textContent = 'Current time: ' + HumWatch.utils.formatTimestamp(new Date());
+                } else {
+                    HumWatch.utils.setTimezone(select.value);
+                    HumWatch.charts.resetColors();
+                    preview.textContent = 'Current time: ' + HumWatch.utils.formatTimestamp(new Date());
+                }
+            });
+        });
+
+        // Timezone select
+        select.addEventListener('change', function() {
+            HumWatch.utils.setTimezone(select.value);
+            HumWatch.charts.resetColors();
+            preview.textContent = 'Current time: ' + HumWatch.utils.formatTimestamp(new Date());
         });
     },
 

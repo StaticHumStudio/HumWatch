@@ -55,6 +55,16 @@ HumWatch.charts._commonOptions = function() {
                 titleFont: { family: "'JetBrains Mono', monospace", size: 11 },
                 bodyFont: { family: "'JetBrains Mono', monospace", size: 11 },
                 padding: 8,
+                callbacks: {
+                    title: function(items) {
+                        if (!items.length) return '';
+                        var raw = items[0].raw;
+                        if (raw && raw.x instanceof Date) {
+                            return HumWatch.utils.formatChartTime(raw.x, 'time');
+                        }
+                        return items[0].label || '';
+                    },
+                },
             },
         },
         scales: {
@@ -83,6 +93,17 @@ HumWatch.charts._commonOptions = function() {
                     font: { family: "'JetBrains Mono', monospace", size: 10 },
                     maxTicksLimit: 6,
                     maxRotation: 0,
+                    callback: function(value, index, ticks) {
+                        var tick = ticks[index];
+                        if (!tick) return value;
+                        var date = new Date(tick.value);
+                        // Determine hint based on time span
+                        var first = ticks[0] ? ticks[0].value : 0;
+                        var last = ticks[ticks.length - 1] ? ticks[ticks.length - 1].value : 0;
+                        var rangeMs = last - first;
+                        var hint = rangeMs > 86400000 ? 'day' : 'short';
+                        return HumWatch.utils.formatChartTime(date, hint);
+                    },
                 }
             },
             y: {
