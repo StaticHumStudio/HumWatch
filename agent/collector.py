@@ -172,6 +172,21 @@ def _lhm_worker():
 _lhm_first_dump = True  # Log all sensors on first read for diagnostics
 
 
+def _extract_index(name: str) -> Optional[int]:
+    """Extract a zero-based index from sensor names like `Core #3` or `Core 3`."""
+    digits = "".join(c for c in name if c.isdigit())
+    if not digits:
+        return None
+    return max(0, int(digits) - 1)
+
+
+def _walk_hardware_nodes(hardware):
+    """Yield hardware and all nested sub-hardware nodes recursively."""
+    yield hardware
+    for sub in hardware.SubHardware:
+        yield from _walk_hardware_nodes(sub)
+
+
 def _read_lhm_sensors(computer) -> dict:
     """Read all sensors from LHM and return as a flat dict."""
     global _gpu_name, _lhm_first_dump
@@ -180,7 +195,7 @@ def _read_lhm_sensors(computer) -> dict:
     data = {}
     fan_index = 0
 
-    for hardware in computer.Hardware:
+    for disk_index, hardware in enumerate(computer.Hardware):
         hardware.Update()
 
         # Track GPU name
@@ -191,56 +206,21 @@ def _read_lhm_sensors(computer) -> dict:
         if is_gpu and _gpu_name is None:
             _gpu_name = hardware.Name
 
-        # One-time diagnostic dump of ALL sensors for this hardware
-        if _lhm_first_dump:
-            sensor_list = []
-            for s in hardware.Sensors:
-                sensor_list.append(f"  {s.SensorType}: {s.Name} = {s.Value}")
-            logger.info(
-                "LHM sensors for %s (type=%s): %d sensors%s",
-                hardware.Name, hw_type, len(sensor_list),
-                "\n" + "\n".join(sensor_list) if sensor_list else " (none)"
-            )
-            for sub in hardware.SubHardware:
-                sub.Update()
-                sub_sensors = []
-                for s in sub.Sensors:
-                    sub_sensors.append(f"  {s.SensorType}: {s.Name} = {s.Value}")
+        for node in _walk_hardware_nodes(hardware):
+            node.Update()
+
+            # One-time diagnostic dump of ALL sensors for this node
+            if _lhm_first_dump:
+                sensor_list = [f"  {s.SensorType}: {s.Name} = {s.Value}" for s in node.Sensors]
                 logger.info(
-                    "  Sub-hardware %s (type=%s): %d sensors%s",
-                    sub.Name, sub.HardwareType, len(sub_sensors),
-                    "\n" + "\n".join(sub_sensors) if sub_sensors else " (none)"
+                    "LHM sensors for %s (type=%s): %d sensors%s",
+                    node.Name,
+                    node.HardwareType,
+                    len(sensor_list),
+                    "\n" + "\n".join(sensor_list) if sensor_list else " (none)",
                 )
 
-        # Process direct sensors on the hardware
-        for sensor in hardware.Sensors:
-            if sensor.Value is None:
-                continue
-
-            s_type = sensor.SensorType
-            s_name = sensor.Name
-            s_value = float(sensor.Value)
-
-            if is_gpu:
-                _map_gpu_sensor(data, s_type, s_name, s_value, SensorType)
-            elif hw_type == HardwareType.Cpu:
-                _map_cpu_sensor(data, s_type, s_name, s_value, SensorType)
-            elif hw_type == HardwareType.Battery:
-                _map_battery_sensor(data, s_type, s_name, s_value, SensorType)
-            elif hw_type == HardwareType.Storage:
-                if s_type == SensorType.Temperature:
-                    disk_idx = list(computer.Hardware).index(hardware)
-                    data[f"disk_temp_{disk_idx}"] = s_value
-
-            # Fan sensors can be on any hardware
-            if s_type == SensorType.Fan:
-                data[f"fan_{fan_index}_speed"] = s_value
-                fan_index += 1
-
-        # Also check sub-hardware — apply ALL sensor mappers, not just fans
-        for sub in hardware.SubHardware:
-            sub.Update()
-            for sensor in sub.Sensors:
+            for sensor in node.Sensors:
                 if sensor.Value is None:
                     continue
 
@@ -256,8 +236,7 @@ def _read_lhm_sensors(computer) -> dict:
                     _map_battery_sensor(data, s_type, s_name, s_value, SensorType)
                 elif hw_type == HardwareType.Storage:
                     if s_type == SensorType.Temperature:
-                        disk_idx = list(computer.Hardware).index(hardware)
-                        data[f"disk_temp_{disk_idx}"] = s_value
+                        data[f"disk_temp_{disk_index}"] = s_value
 
                 if s_type == SensorType.Fan:
                     data[f"fan_{fan_index}_speed"] = s_value
@@ -271,37 +250,41 @@ def _map_cpu_sensor(data, s_type, s_name, s_value, SensorType):
     """Map a CPU LHM sensor to our metric names."""
     if s_type == SensorType.Temperature:
         name_lower = s_name.lower()
-        if "package" in name_lower or "total" in name_lower:
+        if (
+            "package" in name_lower
+            or "total" in name_lower
+            or "tdie" in name_lower
+            or "tctl" in name_lower
+            or "cpu" == name_lower.strip()
+        ):
             data["cpu_temp_package"] = s_value
-        elif "tctl" in name_lower or "tdie" in name_lower:
-            # AMD Ryzen reports package temp as "Core (Tctl/Tdie)"
-            data["cpu_temp_package"] = s_value
-        elif "core" in name_lower:
-            # Extract core number: "CPU Core #1" -> 0 (zero-indexed)
-            digits = "".join(c for c in s_name if c.isdigit())
-            if digits:
-                try:
-                    idx = int(digits) - 1
-                    data[f"cpu_temp_core_{max(0, idx)}"] = s_value
-                except (ValueError, IndexError):
-                    pass
-            elif "cpu_temp_package" not in data:
-                # Single "Core" temp with no index — treat as package temp
-                data["cpu_temp_package"] = s_value
+        elif "core" in name_lower or "ccd" in name_lower:
+            idx = _extract_index(s_name)
+            if idx is not None:
+                data[f"cpu_temp_core_{idx}"] = s_value
     elif s_type == SensorType.Clock:
         name_lower = s_name.lower()
-        if "core" in name_lower:
-            try:
-                idx = int("".join(c for c in s_name if c.isdigit())) - 1
-                data[f"cpu_clock_core_{max(0, idx)}"] = s_value
-            except (ValueError, IndexError):
-                pass
+        if "bus" in name_lower:
+            data["cpu_clock_bus"] = s_value
+        elif "core" in name_lower or "ccd" in name_lower or "cpu" in name_lower:
+            idx = _extract_index(s_name)
+            if idx is not None:
+                data[f"cpu_clock_core_{idx}"] = s_value
+            elif "cpu_clock_core_0" not in data:
+                # Fallback for CPUs that only expose a single generic CPU clock sensor.
+                data["cpu_clock_core_0"] = s_value
     elif s_type == SensorType.Power:
         name_lower = s_name.lower()
         if "package" in name_lower or "total" in name_lower:
             data["cpu_power_package"] = s_value
+        elif "cores" in name_lower:
+            data["cpu_power_cores"] = s_value
     elif s_type == SensorType.Voltage:
-        data["cpu_voltage"] = s_value
+        name_lower = s_name.lower()
+        if "vid" in name_lower and "cpu_voltage" not in data:
+            data["cpu_voltage"] = s_value
+        elif "cpu" in name_lower or "vcore" in name_lower or "package" in name_lower:
+            data["cpu_voltage"] = s_value
 
 
 def _map_gpu_sensor(data, s_type, s_name, s_value, SensorType):
@@ -313,7 +296,16 @@ def _map_gpu_sensor(data, s_type, s_name, s_value, SensorType):
     name_lower = s_name.lower()
 
     if s_type == SensorType.Temperature:
-        data["gpu_temp"] = s_value
+        if "hot spot" in name_lower or "hotspot" in name_lower:
+            data["gpu_temp_hotspot"] = s_value
+            if "gpu_temp" not in data:
+                data["gpu_temp"] = s_value
+        elif "memory" in name_lower:
+            data["gpu_temp_memory"] = s_value
+            if "gpu_temp" not in data:
+                data["gpu_temp"] = s_value
+        else:
+            data["gpu_temp"] = s_value
     elif s_type == SensorType.Load:
         # For iGPU: take 'D3D 3D' as the primary load, or 'GPU Core', or first load seen
         if "3d" in name_lower or "core" in name_lower or "gpu" in name_lower:
@@ -327,14 +319,19 @@ def _map_gpu_sensor(data, s_type, s_name, s_value, SensorType):
         else:
             data["gpu_clock_core"] = s_value
     elif s_type == SensorType.SmallData:
-        if "used" in name_lower:
+        if "used" in name_lower or "usage" in name_lower:
             # Discrete GPUs report in GB, iGPUs may report in MB
             # If value < 16 it's likely GB, otherwise MB
             data["gpu_vram_used"] = s_value * 1024 if s_value < 16 else s_value
-        elif "total" in name_lower:
+        elif "total" in name_lower or "available" in name_lower:
             data["gpu_vram_total"] = s_value * 1024 if s_value < 16 else s_value
     elif s_type == SensorType.Power:
-        data["gpu_power"] = s_value
+        if "core" in name_lower and "gpu_power" not in data:
+            data["gpu_power"] = s_value
+        elif "package" in name_lower or "total" in name_lower:
+            data["gpu_power"] = s_value
+        elif "gpu_power" not in data:
+            data["gpu_power"] = s_value
     elif s_type == SensorType.Fan:
         data["gpu_fan_speed"] = s_value
 
@@ -354,6 +351,10 @@ def _map_battery_sensor(data, s_type, s_name, s_value, SensorType):
         elif "remaining" not in name_lower:
             # "Fully-Charged Capacity" → current max capacity
             data["battery_current_capacity"] = s_value
+        else:
+            data["battery_remaining_capacity"] = s_value
+    elif s_type == getattr(SensorType, "Throughput", None):
+        data["battery_charge_rate"] = s_value
     elif s_type == SensorType.Temperature:
         data["battery_temp"] = s_value
     elif s_type == SensorType.Level:

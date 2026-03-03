@@ -7,9 +7,11 @@ HumWatch.pages = HumWatch.pages || {};
 HumWatch.pages.disk = {
     _charts: [],
     _timeRange: '1h',
+    _tempMetrics: [],
 
     init: function(container) {
         this._charts = [];
+        this._tempMetrics = [];
         this._container = container;
         container.innerHTML =
             '<div class="hw-page-header"><h2>Disk</h2></div>' +
@@ -24,8 +26,8 @@ HumWatch.pages.disk = {
             '</div>';
 
         this._renderTimeRange();
-        this._loadCharts();
         this._loadVolumes();
+        this._discoverTempMetrics().then(this._loadCharts.bind(this));
     },
 
     destroy: function() {
@@ -37,6 +39,16 @@ HumWatch.pages.disk = {
         if (data && data.categories && data.categories.disk) {
             this._updateVolumes(data.categories.disk);
         }
+    },
+
+    _discoverTempMetrics: function() {
+        var self = this;
+        return HumWatch.api.getCurrent().then(function(data) {
+            var disk = (data && data.categories && data.categories.disk) || {};
+            self._tempMetrics = Object.keys(disk).filter(function(k) { return k.indexOf('disk_temp_') === 0; });
+        }).catch(function() {
+            self._tempMetrics = [];
+        });
     },
 
     _renderTimeRange: function() {
@@ -59,8 +71,9 @@ HumWatch.pages.disk = {
         this._charts.forEach(function(c) { if (c.destroy) c.destroy(); });
         this._charts = [];
         var colors = HumWatch.charts.getColors().chart;
+        var metrics = ['disk_read_rate', 'disk_write_rate'].concat(this._tempMetrics || []);
 
-        HumWatch.api.getHistoryMulti(['disk_read_rate', 'disk_write_rate'], range.from, range.to).then(function(data) {
+        HumWatch.api.getHistoryMulti(metrics, range.from, range.to).then(function(data) {
             var ioCanvas = document.getElementById('disk-io-chart');
             if (ioCanvas) {
                 var ds = [];
@@ -71,6 +84,22 @@ HumWatch.pages.disk = {
                 if (ds.length > 0)
                     self._charts.push(HumWatch.charts.createTimeSeriesChart(ioCanvas, ds, { yLabel: 'MB/s', yMin: 0, legend: true }));
             }
+
+            var tempCanvas = document.getElementById('disk-temp-chart');
+            if (tempCanvas && self._tempMetrics.length > 0) {
+                var tempDatasets = self._tempMetrics
+                    .filter(function(metric) { return data[metric] && data[metric].length > 0; })
+                    .map(function(metric, idx) {
+                        return {
+                            label: metric.replace('disk_temp_', 'Disk '),
+                            data: HumWatch.charts.historyToChartData(data[metric]),
+                            borderColor: colors[(idx + 4) % colors.length]
+                        };
+                    });
+                if (tempDatasets.length > 0)
+                    self._charts.push(HumWatch.charts.createTimeSeriesChart(tempCanvas, tempDatasets, { yLabel: '\u00B0C', legend: true }));
+            }
+
             HumWatch.utils.markEmptyCharts(self._container);
         }).catch(function() {
             HumWatch.utils.markEmptyCharts(self._container);

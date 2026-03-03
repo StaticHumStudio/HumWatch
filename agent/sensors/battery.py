@@ -17,13 +17,20 @@ class BatterySensor(BaseSensor):
 
     def is_available(self) -> bool:
         if self._has_battery is None:
-            self._has_battery = psutil.sensors_battery() is not None
+            try:
+                self._has_battery = psutil.sensors_battery() is not None
+            except Exception:
+                self._has_battery = False
         return self._has_battery
 
     def collect(self) -> List[MetricReading]:
         readings: List[MetricReading] = []
 
-        bat = psutil.sensors_battery()
+        try:
+            bat = psutil.sensors_battery()
+        except Exception:
+            self._has_battery = False
+            return readings
         if bat is None:
             self._has_battery = False
             return readings
@@ -47,6 +54,7 @@ class BatterySensor(BaseSensor):
             "battery_current": "A",
             "battery_designed_capacity": "mWh",
             "battery_current_capacity": "mWh",
+            "battery_remaining_capacity": "mWh",
             "battery_temp": "°C",
             "battery_cycle_count": "",
             "battery_charge_level": "%",

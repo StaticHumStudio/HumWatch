@@ -48,7 +48,11 @@ class CpuSensor(BaseSensor):
                 readings.append(MetricReading("cpu", key, value, "MHz"))
             elif key == "cpu_power_package":
                 readings.append(MetricReading("cpu", key, value, "W"))
+            elif key == "cpu_power_cores":
+                readings.append(MetricReading("cpu", key, value, "W"))
             elif key == "cpu_voltage":
                 readings.append(MetricReading("cpu", key, value, "V"))
+            elif key == "cpu_clock_bus":
+                readings.append(MetricReading("cpu", key, value, "MHz"))
 
         return readings
