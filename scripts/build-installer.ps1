@@ -269,6 +269,18 @@ if ($SkipPythonDownload -and (Test-Path "$PyStageDirPath\python.exe")) {
     Remove-Item $getPipPath -Force -ErrorAction SilentlyContinue
 }
 
+# Always ensure the ._pth file has the parent-dir entry, even when
+# -SkipPythonDownload was used (the patching above only runs on fresh extract).
+$pthFile = Join-Path $PyStageDirPath "python$PyMajorMinor._pth"
+if (Test-Path $pthFile) {
+    $pthContent = Get-Content $pthFile -Raw
+    if ($pthContent -notmatch '(?m)^\.\.$') {
+        $pthContent = $pthContent -replace '(?m)^(\.)$', "`$1`r`n.."
+        Set-Content $pthFile $pthContent -NoNewline
+        Write-Ok "Patched python$PyMajorMinor._pth: added parent-dir (..)"
+    }
+}
+
 $pySize = [math]::Round(
     (Get-ChildItem $PyStageDirPath -Recurse | Measure-Object Length -Sum).Sum / 1MB, 1)
 Write-Info "Embedded Python bundle: $pySize MB"
