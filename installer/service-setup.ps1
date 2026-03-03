@@ -22,7 +22,9 @@ $NssmPath    = Join-Path $AppDir "tools\nssm.exe"
 $PythonPath  = Join-Path $AppDir "python\python.exe"
 $LogDir      = Join-Path $AppDir "logs"
 
-# ── Logging helper ────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+#  Logging helper
+# ---------------------------------------------------------------------------
 
 $LogFile = Join-Path $LogDir "service-setup.log"
 New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
@@ -32,7 +34,20 @@ function Write-Log([string]$msg) {
     Add-Content -Path $LogFile -Value $line -ErrorAction SilentlyContinue
 }
 
-# ── Remove existing service ───────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+#  Helper: run NSSM via Start-Process (avoids PowerShell output-capture hangs)
+# ---------------------------------------------------------------------------
+
+function Invoke-Nssm {
+    param([string[]]$Arguments)
+    $p = Start-Process -FilePath $NssmPath -ArgumentList $Arguments `
+         -Wait -NoNewWindow -PassThru
+    return $p.ExitCode
+}
+
+# ---------------------------------------------------------------------------
+#  Remove existing service
+# ---------------------------------------------------------------------------
 
 function Remove-HumWatchService {
     $svc = Get-Service $ServiceName -ErrorAction SilentlyContinue
@@ -49,7 +64,9 @@ function Remove-HumWatchService {
     }
 }
 
-# ── UNINSTALL ─────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+#  UNINSTALL
+# ---------------------------------------------------------------------------
 
 if ($Action -eq "uninstall") {
     Write-Log "=== Uninstall started ==="
@@ -58,7 +75,9 @@ if ($Action -eq "uninstall") {
     exit 0
 }
 
-# ── INSTALL ───────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+#  INSTALL
+# ---------------------------------------------------------------------------
 
 Write-Log "=== Install started ==="
 Write-Log "AppDir:  $AppDir"
@@ -72,10 +91,11 @@ if (-not (Test-Path $PythonPath)) { Write-Log "ERROR: Python not found at $Pytho
 # Remove any stale service
 Remove-HumWatchService
 
-# Install via NSSM
+# --- Step 1: Install the service via NSSM ---
 Write-Log "Installing service via NSSM..."
-Start-Process -FilePath $NssmPath -ArgumentList "install",$ServiceName,$PythonPath,"-m agent.main" -Wait -NoNewWindow -PassThru | Out-Null
-Start-Sleep -Seconds 2
+$exitCode = Invoke-Nssm @("install", $ServiceName, $PythonPath, "-m agent.main")
+Write-Log "NSSM install exit code: $exitCode"
+Start-Sleep -Seconds 3
 
 # Verify NSSM created the service
 $svc = Get-Service $ServiceName -ErrorAction SilentlyContinue
@@ -85,61 +105,94 @@ if (-not $svc) {
 }
 Write-Log "NSSM service created successfully."
 
-# Fix registry: NSSM install doesn't always add the service name to ImagePath
-# (PowerShell calling convention issue). Set it directly.
-$SvcKey    = "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName"
-$ParamKey  = "$SvcKey\Parameters"
+# --- Step 2: Configure via NSSM set commands ---
+# Using NSSM's own set command is more reliable than direct registry writes.
+# Direct Set-ItemProperty to HKLM service keys can fail silently under
+# certain PowerShell/Inno-Setup execution contexts.
 
-if (-not (Test-Path $ParamKey)) {
-    New-Item -Path $ParamKey -Force | Out-Null
-    Write-Log "Created Parameters registry key."
+Write-Log "Configuring service settings via NSSM set..."
+
+try {
+    # Working directory -- CRITICAL: must be app root, not the python\ subfolder.
+    # NSSM defaults AppDirectory to the directory of the Application exe, which
+    # would be C:\HumWatch\python\ -- that breaks "python -m agent.main" because
+    # the agent package lives in C:\HumWatch\agent\.
+    $rc = Invoke-Nssm @("set", $ServiceName, "AppDirectory", $AppDir)
+    Write-Log "Set AppDirectory=$AppDir (exit $rc)"
+
+    # Logging
+    $stdout = Join-Path $LogDir "humwatch-stdout.log"
+    $stderr = Join-Path $LogDir "humwatch-stderr.log"
+    Invoke-Nssm @("set", $ServiceName, "AppStdout", $stdout) | Out-Null
+    Invoke-Nssm @("set", $ServiceName, "AppStderr", $stderr) | Out-Null
+    Write-Log "Set log paths."
+
+    # Log file creation disposition (4 = append)
+    Invoke-Nssm @("set", $ServiceName, "AppStdoutCreationDisposition", "4") | Out-Null
+    Invoke-Nssm @("set", $ServiceName, "AppStderrCreationDisposition", "4") | Out-Null
+
+    # Log rotation (rotate at 5 MB)
+    Invoke-Nssm @("set", $ServiceName, "AppRotateFiles", "1") | Out-Null
+    Invoke-Nssm @("set", $ServiceName, "AppRotateOnline", "1") | Out-Null
+    Invoke-Nssm @("set", $ServiceName, "AppRotateBytes", "5242880") | Out-Null
+    Write-Log "Set log rotation settings."
+
+    # Auto-restart on crash (5-second delay)
+    Invoke-Nssm @("set", $ServiceName, "AppExit", "Default", "Restart") | Out-Null
+    Invoke-Nssm @("set", $ServiceName, "AppRestartDelay", "5000") | Out-Null
+    Write-Log "Set crash recovery settings."
+
+} catch {
+    Write-Log "WARNING: NSSM set commands failed: $_"
+    Write-Log "Falling back to direct registry writes..."
+
+    try {
+        $ParamKey = "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName\Parameters"
+        if (-not (Test-Path $ParamKey)) {
+            New-Item -Path $ParamKey -Force | Out-Null
+        }
+        Set-ItemProperty -Path $ParamKey -Name AppDirectory                -Value $AppDir
+        Set-ItemProperty -Path $ParamKey -Name AppStdout                   -Value (Join-Path $LogDir "humwatch-stdout.log")
+        Set-ItemProperty -Path $ParamKey -Name AppStderr                   -Value (Join-Path $LogDir "humwatch-stderr.log")
+        Set-ItemProperty -Path $ParamKey -Name AppStdoutCreationDisposition -Value 4
+        Set-ItemProperty -Path $ParamKey -Name AppStderrCreationDisposition -Value 4
+        Set-ItemProperty -Path $ParamKey -Name AppRotateFiles              -Value 1
+        Set-ItemProperty -Path $ParamKey -Name AppRotateOnline             -Value 1
+        Set-ItemProperty -Path $ParamKey -Name AppRotateBytes              -Value 5242880
+        Set-ItemProperty -Path $ParamKey -Name AppExit                     -Value "Default Restart"
+        Set-ItemProperty -Path $ParamKey -Name AppRestartDelay             -Value 5000
+        Write-Log "Registry fallback succeeded."
+    } catch {
+        Write-Log "ERROR: Registry fallback also failed: $_"
+    }
 }
 
-Write-Log "Writing service registry values..."
-
-# ImagePath must be: "<nssm.exe path>" <ServiceName>
-Set-ItemProperty -Path $SvcKey -Name ImagePath -Value "`"$NssmPath`" $ServiceName"
-
-# NSSM application parameters
-Set-ItemProperty -Path $ParamKey -Name Application     -Value $PythonPath
-Set-ItemProperty -Path $ParamKey -Name AppParameters   -Value "-m agent.main"
-Set-ItemProperty -Path $ParamKey -Name AppDirectory    -Value $AppDir
-
-# Logging (log rotation at 5 MB)
-Set-ItemProperty -Path $ParamKey -Name AppStdout              -Value "$LogDir\humwatch-stdout.log"
-Set-ItemProperty -Path $ParamKey -Name AppStderr              -Value "$LogDir\humwatch-stderr.log"
-Set-ItemProperty -Path $ParamKey -Name AppStdoutCreationDisposition -Value 4
-Set-ItemProperty -Path $ParamKey -Name AppStderrCreationDisposition -Value 4
-Set-ItemProperty -Path $ParamKey -Name AppRotateFiles         -Value 1
-Set-ItemProperty -Path $ParamKey -Name AppRotateOnline        -Value 1
-Set-ItemProperty -Path $ParamKey -Name AppRotateBytes         -Value 5242880
-
-# Auto-restart on crash (5 second delay)
-Set-ItemProperty -Path $ParamKey -Name AppExit          -Value "Default Restart"
-Set-ItemProperty -Path $ParamKey -Name AppRestartDelay  -Value 5000
-
-# Service metadata
+# --- Step 3: Service metadata via sc.exe ---
+Write-Log "Setting service metadata..."
 sc.exe config $ServiceName start= auto obj= LocalSystem | Out-Null
 sc.exe description $ServiceName "Local hardware monitoring agent (Static Hum Studio)" | Out-Null
+Write-Log "Set auto-start and description."
 
-# Verify registry looks correct
-$imagePath = (Get-ItemProperty $SvcKey).ImagePath
-$appPath   = (Get-ItemProperty $ParamKey -ErrorAction SilentlyContinue).Application
-$appDir    = (Get-ItemProperty $ParamKey -ErrorAction SilentlyContinue).AppDirectory
-Write-Log "Verified ImagePath:   $imagePath"
-Write-Log "Verified Application: $appPath"
-Write-Log "Verified AppDirectory:$appDir"
+# --- Step 4: Verify final configuration ---
+try {
+    $ParamKey = "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName\Parameters"
+    $regApp   = (Get-ItemProperty $ParamKey -ErrorAction SilentlyContinue).Application
+    $regDir   = (Get-ItemProperty $ParamKey -ErrorAction SilentlyContinue).AppDirectory
+    $regArgs  = (Get-ItemProperty $ParamKey -ErrorAction SilentlyContinue).AppParameters
+    Write-Log "Verified Application:  $regApp"
+    Write-Log "Verified AppDirectory: $regDir"
+    Write-Log "Verified AppParameters:$regArgs"
 
-if ($imagePath -notmatch [regex]::Escape($ServiceName)) {
-    Write-Log "WARNING: ImagePath does not contain service name -- NSSM may not start correctly."
+    if ($regDir -ne $AppDir) {
+        Write-Log "WARNING: AppDirectory mismatch. Expected=$AppDir Got=$regDir. Attempting fix..."
+        Set-ItemProperty -Path $ParamKey -Name AppDirectory -Value $AppDir -ErrorAction SilentlyContinue
+        Write-Log "AppDirectory corrected via direct registry write."
+    }
+} catch {
+    Write-Log "WARNING: Could not verify registry settings: $_"
 }
-if ($appDir -ne $AppDir) {
-    Write-Log "WARNING: AppDirectory mismatch. Expected: $AppDir, Got: $appDir"
-    Set-ItemProperty -Path $ParamKey -Name AppDirectory -Value $AppDir
-    Write-Log "AppDirectory corrected."
-}
 
-# Start the service
+# --- Step 5: Start the service ---
 Write-Log "Starting service..."
 try {
     Start-Service $ServiceName -ErrorAction Stop
