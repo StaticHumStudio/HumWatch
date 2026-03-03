@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Installs or uninstalls the HumWatch Windows service.
-    Bundled inside the installer — called by Inno Setup [Run]/[UninstallRun].
+    Bundled inside the installer -- called by Inno Setup [Run]/[UninstallRun].
 
 .PARAMETER Action
     "install" or "uninstall"
@@ -72,9 +72,14 @@ if (-not (Test-Path $PythonPath)) { Write-Log "ERROR: Python not found at $Pytho
 # Remove any stale service
 Remove-HumWatchService
 
-# Install via NSSM using cmd.exe to avoid PowerShell argument-quoting issues
+# Install via NSSM
 Write-Log "Installing service via NSSM..."
-cmd /c "`"$NssmPath`" install $ServiceName `"$PythonPath`" -m agent.main" 2>&1 | ForEach-Object { Write-Log "nssm install: $_" }
+$nssmOut = & $NssmPath install $ServiceName $PythonPath "-m" "agent.main" 2>&1
+$nssmOut | ForEach-Object { Write-Log "nssm install: $_" }
+if ($LASTEXITCODE -ne 0) {
+    Write-Log "ERROR: NSSM install exited with code $LASTEXITCODE"
+    exit 1
+}
 Start-Sleep -Seconds 1
 
 # Fix registry: NSSM install doesn't always add the service name to ImagePath
@@ -123,7 +128,7 @@ Write-Log "Verified Application: $appPath"
 Write-Log "Verified AppDirectory:$appDir"
 
 if ($imagePath -notmatch [regex]::Escape($ServiceName)) {
-    Write-Log "WARNING: ImagePath does not contain service name — NSSM may not start correctly."
+    Write-Log "WARNING: ImagePath does not contain service name -- NSSM may not start correctly."
 }
 if ($appDir -ne $AppDir) {
     Write-Log "WARNING: AppDirectory mismatch. Expected: $AppDir, Got: $appDir"

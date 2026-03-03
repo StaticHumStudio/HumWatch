@@ -16,7 +16,7 @@ $ErrorActionPreference = "Stop"
 
 $ServiceName = "HumWatch"
 
-Write-Host "HumWatch — Service Uninstaller" -ForegroundColor Yellow
+Write-Host "HumWatch - Service Uninstaller" -ForegroundColor Yellow
 Write-Host "===============================" -ForegroundColor Yellow
 Write-Host ""
 

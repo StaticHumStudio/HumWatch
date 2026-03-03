@@ -5,7 +5,7 @@
 .DESCRIPTION
     Fetches LibreHardwareMonitorLib.dll and HidSharp.dll from the official
     LibreHardwareMonitor GitHub releases and places them in the lib/ directory.
-    No admin privileges required for downloading — admin is only needed at
+    No admin privileges required for downloading -- admin is only needed at
     runtime for hardware sensor access.
 
 .NOTES
@@ -23,7 +23,7 @@ $LibDir = Join-Path $ProjectRoot "lib"
 $TempZip = Join-Path $env:TEMP "lhm-${LHM_VERSION}.zip"
 $TempExtract = Join-Path $env:TEMP "lhm-extract"
 
-Write-Host "HumWatch — LibreHardwareMonitor Downloader" -ForegroundColor Yellow
+Write-Host "HumWatch - LibreHardwareMonitor Downloader" -ForegroundColor Yellow
 Write-Host "==========================================="
 Write-Host ""
 
@@ -89,7 +89,7 @@ if (-not $downloaded) {
 # Verify the zip isn't corrupt/truncated
 $zipSize = (Get-Item $TempZip).Length
 if ($zipSize -lt 100000) {
-    Write-Host "[!] Downloaded file is too small ($([int]($zipSize/1KB)) KB) — may be corrupt or blocked." -ForegroundColor Red
+    Write-Host "[!] Downloaded file is too small ($([int]($zipSize/1KB)) KB) -- may be corrupt or blocked." -ForegroundColor Red
     Write-Host "    You can manually download from:" -ForegroundColor Yellow
     Write-Host "    $RELEASE_URL" -ForegroundColor Cyan
     Remove-Item $TempZip -Force -ErrorAction SilentlyContinue
