@@ -5,9 +5,12 @@
 
 .DESCRIPTION
     Downloads NSSM (if not found), then registers HumWatch as an auto-start
-    Windows service running under the SYSTEM account. The service starts on
-    boot, runs in the background (no console window), and auto-restarts on
-    failure. Logs are rotated at 5 MB.
+    Windows service. The installer now hardens startup reliability by:
+      - preferring a project-local venv Python
+      - auto-creating the venv + dependencies when missing
+      - enabling delayed auto-start for reboot stability
+      - applying Windows Service recovery actions
+      - running a local health check after service start
 
 .PARAMETER Uninstall
     Stop and remove the HumWatch service.
@@ -27,6 +30,7 @@ $ServiceName = "HumWatch"
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $ToolsDir = Join-Path $ProjectRoot "tools"
 $LogDir = Join-Path $ProjectRoot "logs"
+$RequirementsFile = Join-Path $ProjectRoot "requirements.txt"
 
 Write-Host ""
 Write-Host "HumWatch - Service Installer" -ForegroundColor Yellow
@@ -36,15 +40,12 @@ Write-Host ""
 # ── Helper: find or download NSSM ───────────────────────────────────────
 
 function Get-Nssm {
-    # Check tools/ first
     $local = Join-Path $ToolsDir "nssm.exe"
     if (Test-Path $local) { return $local }
 
-    # Check PATH
     $onPath = Get-Command nssm -ErrorAction SilentlyContinue
     if ($onPath) { return $onPath.Source }
 
-    # Auto-download
     Write-Host "[*] Downloading NSSM (Non-Sucking Service Manager)..." -ForegroundColor Yellow
     if (-not (Test-Path $ToolsDir)) {
         New-Item -ItemType Directory -Path $ToolsDir -Force | Out-Null
@@ -60,7 +61,6 @@ function Get-Nssm {
         Invoke-WebRequest -Uri $nssmUrl -OutFile $zipPath -UseBasicParsing
         Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
 
-        # Find the 64-bit binary
         $bin = Get-ChildItem -Path $extractPath -Recurse -Filter "nssm.exe" |
             Where-Object { $_.DirectoryName -match "win64" } |
             Select-Object -First 1
@@ -88,11 +88,80 @@ function Get-Nssm {
     return $local
 }
 
+function Get-BootstrapPython {
+    $python = Get-Command python3 -ErrorAction SilentlyContinue
+    if (-not $python) { $python = Get-Command python -ErrorAction SilentlyContinue }
+    if (-not $python) {
+        throw "Python not found. Install Python 3.10+ and run setup.bat first."
+    }
+
+    $pythonPath = $python.Source
+    if ($pythonPath -match "WindowsApps") {
+        throw "Python resolves to WindowsApps alias ($pythonPath). Install real python.org Python and re-run setup.bat."
+    }
+
+    return $pythonPath
+}
+
+function Ensure-Venv {
+    $venvPython = Join-Path $ProjectRoot "venv\Scripts\python.exe"
+    if (Test-Path $venvPython) {
+        Write-Host "[i] Python: $venvPython (venv)" -ForegroundColor Cyan
+        return $venvPython
+    }
+
+    Write-Host "[!] venv not found. Creating one automatically..." -ForegroundColor Yellow
+    $bootstrapPython = Get-BootstrapPython
+    Write-Host "[i] Bootstrap Python: $bootstrapPython" -ForegroundColor Cyan
+
+    & $bootstrapPython -m venv (Join-Path $ProjectRoot "venv")
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $venvPython)) {
+        throw "Failed to create venv. Run setup.bat and retry."
+    }
+
+    if (-not (Test-Path $RequirementsFile)) {
+        throw "requirements.txt not found at $RequirementsFile"
+    }
+
+    Write-Host "[*] Installing dependencies into venv..." -ForegroundColor Yellow
+    & $venvPython -m pip install --upgrade pip
+    & $venvPython -m pip install -r $RequirementsFile
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[!] Some dependencies failed to install." -ForegroundColor Yellow
+        Write-Host "    HumWatch may still run in reduced mode (psutil-only)." -ForegroundColor Yellow
+    }
+
+    return $venvPython
+}
+
+function Wait-ForHealth {
+    param(
+        [int]$Port = 9100,
+        [int]$TimeoutSeconds = 30
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $url = "http://127.0.0.1:$Port/api/health"
+
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $resp = Invoke-RestMethod -Uri $url -Method Get -TimeoutSec 2
+            if ($resp) {
+                return $true
+            }
+        } catch {
+            Start-Sleep -Milliseconds 750
+        }
+    }
+
+    return $false
+}
+
 # ── Uninstall mode ──────────────────────────────────────────────────────
 
 if ($Uninstall) {
     $Nssm = Get-Nssm
-    $status = & $Nssm status $ServiceName 2>&1
+    & $Nssm status $ServiceName 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[i] Service '$ServiceName' is not installed." -ForegroundColor Yellow
         exit 0
@@ -106,23 +175,9 @@ if ($Uninstall) {
     exit 0
 }
 
-# ── Find Python ─────────────────────────────────────────────────────────
+# ── Find Python (prefer venv, create if missing) ───────────────────────
 
-$VenvPython = Join-Path $ProjectRoot "venv\Scripts\python.exe"
-if (Test-Path $VenvPython) {
-    $PythonPath = $VenvPython
-    Write-Host "[i] Python: $PythonPath (venv)" -ForegroundColor Cyan
-} else {
-    $Python = Get-Command python3 -ErrorAction SilentlyContinue
-    if (-not $Python) { $Python = Get-Command python -ErrorAction SilentlyContinue }
-    if (-not $Python) {
-        Write-Host "[!] Python not found. Run setup.bat first." -ForegroundColor Red
-        exit 1
-    }
-    $PythonPath = $Python.Source
-    Write-Host "[i] Python: $PythonPath (system)" -ForegroundColor Cyan
-    Write-Host "[!] No venv found. Consider running setup.bat first." -ForegroundColor Yellow
-}
+$PythonPath = Ensure-Venv
 
 # ── Find or download NSSM ──────────────────────────────────────────────
 
@@ -131,9 +186,9 @@ Write-Host "[i] NSSM: $Nssm" -ForegroundColor Cyan
 
 # ── Check for existing service ──────────────────────────────────────────
 
-$existing = & $Nssm status $ServiceName 2>&1
+& $Nssm status $ServiceName 2>&1 | Out-Null
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "[i] Service already installed (status: $existing). Reinstalling..." -ForegroundColor Yellow
+    Write-Host "[i] Service already installed. Reinstalling..." -ForegroundColor Yellow
     & $Nssm stop $ServiceName 2>&1 | Out-Null
     Start-Sleep -Seconds 2
     & $Nssm remove $ServiceName confirm
@@ -152,8 +207,9 @@ Write-Host "[*] Installing service..." -ForegroundColor Yellow
 & $Nssm set $ServiceName AppDirectory $ProjectRoot
 & $Nssm set $ServiceName DisplayName "HumWatch Agent"
 & $Nssm set $ServiceName Description "Local hardware monitoring agent - Static Hum Studio"
-& $Nssm set $ServiceName Start SERVICE_AUTO_START
+& $Nssm set $ServiceName Start SERVICE_DELAYED_AUTO_START
 & $Nssm set $ServiceName ObjectName LocalSystem
+& $Nssm set $ServiceName AppEnvironmentExtra "PYTHONUNBUFFERED=1"
 
 # Log rotation (5 MB per file)
 $StdoutLog = Join-Path $LogDir "humwatch-stdout.log"
@@ -169,6 +225,10 @@ $StderrLog = Join-Path $LogDir "humwatch-stderr.log"
 # Auto-restart on failure (5 second delay)
 & $Nssm set $ServiceName AppExit Default Restart
 & $Nssm set $ServiceName AppRestartDelay 5000
+
+# Also configure Windows Service recovery (SCM-level)
+sc.exe failure $ServiceName reset= 86400 actions= restart/5000/restart/10000/restart/30000 | Out-Null
+sc.exe failureflag $ServiceName 1 | Out-Null
 
 Write-Host "[+] Service installed" -ForegroundColor Green
 
@@ -188,18 +248,35 @@ if ($verifyExit -eq 2) {
 # ── Start service ───────────────────────────────────────────────────────
 
 Write-Host "[*] Starting service..." -ForegroundColor Yellow
-& $Nssm start $ServiceName
+& $Nssm start $ServiceName | Out-Null
 
 Start-Sleep -Seconds 3
 $status = & $Nssm status $ServiceName
 Write-Host ""
 Write-Host "[+] HumWatch service: $status" -ForegroundColor Green
+
+$healthy = Wait-ForHealth -Port 9100 -TimeoutSeconds 30
+if ($healthy) {
+    Write-Host "[+] Health check passed: http://127.0.0.1:9100/api/health" -ForegroundColor Green
+} else {
+    Write-Host "[!] Health check timed out. Service may still be warming up, or startup failed." -ForegroundColor Red
+    Write-Host "    Check logs:" -ForegroundColor Yellow
+    Write-Host "      $StdoutLog" -ForegroundColor Yellow
+    Write-Host "      $StderrLog" -ForegroundColor Yellow
+    if (Test-Path $StderrLog) {
+        Write-Host "" 
+        Write-Host "--- Last 40 lines of stderr ---" -ForegroundColor Yellow
+        Get-Content $StderrLog -Tail 40
+        Write-Host "--- End stderr ---" -ForegroundColor Yellow
+    }
+}
+
 Write-Host ""
 Write-Host "  Dashboard:  http://localhost:9100" -ForegroundColor Cyan
 Write-Host "  Logs:       $LogDir" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  The service runs in the background and starts" -ForegroundColor White
-Write-Host "  automatically on every reboot. No console window." -ForegroundColor White
+Write-Host "  automatically on every reboot (delayed auto-start)." -ForegroundColor White
 Write-Host ""
 Write-Host "  Manage:" -ForegroundColor Yellow
 Write-Host "    nssm status $ServiceName" -ForegroundColor White
