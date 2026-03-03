@@ -5,7 +5,7 @@
 ; That script stages all required files into dist\stage\ first.
 ;
 ; Preprocessor defines supplied by build-installer.ps1:
-;   /DMyAppVersion=0.9.5
+;   /DMyAppVersion=0.9.6
 ;   /DStageDir=C:\...\dist\stage
 
 #ifndef MyAppVersion
