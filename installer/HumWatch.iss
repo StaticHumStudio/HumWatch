@@ -46,7 +46,6 @@ SolidCompression=yes
 WizardStyle=modern
 WizardResizable=no
 PrivilegesRequired=admin
-PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
 CloseApplications=yes

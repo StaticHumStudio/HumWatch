@@ -37,17 +37,18 @@ function Write-Log([string]$msg) {
 
 # ---------------------------------------------------------------------------
 #  Helper: run NSSM and return exit code
-#  Uses Start-Process to avoid PowerShell stdout-capture hangs with NSSM.
+#  Uses direct invocation (&) to inherit the elevated token from the
+#  Inno Setup installer process.
 # ---------------------------------------------------------------------------
 
 function Invoke-Nssm {
     param([string[]]$Arguments)
-    # Join arguments into a single string to avoid Start-Process array-joining
-    # quirks that can mangle paths or skip arguments.
-    $argString = ($Arguments | ForEach-Object { "`"$_`"" }) -join " "
-    $p = Start-Process -FilePath $NssmPath -ArgumentList $argString `
-         -Wait -NoNewWindow -PassThru
-    return $p.ExitCode
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+    & $NssmPath @Arguments 2>&1 | Out-Null
+    $rc = $LASTEXITCODE
+    $ErrorActionPreference = $prevEAP
+    return $rc
 }
 
 # ---------------------------------------------------------------------------
