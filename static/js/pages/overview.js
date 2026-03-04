@@ -34,17 +34,36 @@ HumWatch.pages.overview = {
             self._renderInfo(info);
         }).catch(function() {});
 
-        // Load current data for gauges (may 503 if no data yet — SSE will retry)
-        HumWatch.api.getCurrent().then(function(data) {
-            self._initGauges(data);
-            self._renderBattery(data);
-        }).catch(function() {
-            var gc = document.getElementById('ov-gauges');
-            if (gc) gc.innerHTML = '<div class="hw-empty" style="grid-column:1/-1">Waiting for first data collection\u2026</div>';
+        // Load current + history in parallel so gauges seed instantly from DB
+        var sparklineKeys = self._sparklineMetrics.map(function(m) { return m.key; });
+        var allKeys = sparklineKeys.slice();
+        ['gpu_load', 'gpu_temp'].forEach(function(k) {
+            if (allKeys.indexOf(k) === -1) allKeys.push(k);
         });
+        var range = HumWatch.utils.getTimeRange('15m');
 
-        // Load sparkline data (use 15m window for better startup coverage)
-        self._loadSparklines();
+        Promise.all([
+            HumWatch.api.getCurrent().catch(function() { return null; }),
+            HumWatch.api.getHistoryMulti(allKeys, range.from, range.to).catch(function() { return {}; }),
+        ]).then(function(results) {
+            var currentData = results[0];
+            var historyData = results[1];
+
+            // Init gauges — current data preferred, history as fallback
+            self._initGauges(currentData, historyData);
+            self._renderBattery(currentData);
+            self._renderSparklines(historyData);
+
+            // Retry sparklines if no data yet
+            var hasTemp = (historyData['cpu_temp_package'] || []).length > 0;
+            var hasLoad = (historyData['cpu_load_total'] || []).length > 0;
+            if (!hasTemp && !hasLoad && !self._retryTimer) {
+                self._retryTimer = setTimeout(function() {
+                    self._retryTimer = null;
+                    self._loadSparklines();
+                }, 15000);
+            }
+        });
     },
 
     destroy: function() {
@@ -92,25 +111,39 @@ HumWatch.pages.overview = {
         this._updateSparklines(data);
     },
 
-    _initGauges: function(data) {
+    _initGauges: function(data, historyData) {
         var container = document.getElementById('ov-gauges');
         if (!container) return;
         container.innerHTML = '';
 
-        var cats = data.categories || {};
+        var cats = (data && data.categories) || {};
+        var hist = historyData || {};
         var config = (HumWatch.router._config || {}).alert_thresholds || {};
 
-        var gaugeConfigs = [
-            { label: 'CPU Load', value: (cats.cpu || {}).cpu_load_total, unit: '%', max: 100, warn: 85, crit: 95 },
-            { label: 'CPU Temp', value: (cats.cpu || {}).cpu_temp_package, unit: '\u00B0C', max: 110, warn: config.cpu_temp_warn || 85, crit: config.cpu_temp_critical || 95 },
-        ];
-
-        if (cats.gpu && cats.gpu.gpu_load) {
-            gaugeConfigs.push({ label: 'GPU Load', value: cats.gpu.gpu_load, unit: '%', max: 100, warn: 85, crit: 95 });
-            gaugeConfigs.push({ label: 'GPU Temp', value: cats.gpu.gpu_temp, unit: '\u00B0C', max: 110, warn: config.gpu_temp_warn || 80, crit: config.gpu_temp_critical || 90 });
+        // Helper: get value from current data, fall back to last history point
+        function val(catKey, metricKey) {
+            var cat = cats[catKey] || {};
+            if (cat[metricKey] && cat[metricKey].value != null) return cat[metricKey].value;
+            var h = hist[metricKey] || [];
+            if (h.length > 0) return h[h.length - 1].value;
+            return 0;
         }
 
-        gaugeConfigs.push({ label: 'RAM', value: (cats.memory || {}).mem_percent, unit: '%', max: 100, warn: config.ram_percent_warn || 85, crit: config.ram_percent_critical || 95 });
+        // Detect GPU from current data OR history
+        var hasGpu = !!(cats.gpu && cats.gpu.gpu_load) ||
+                     (hist['gpu_load'] || []).length > 0;
+
+        var gaugeConfigs = [
+            { label: 'CPU Load', value: val('cpu', 'cpu_load_total'), unit: '%', max: 100, warn: 85, crit: 95 },
+            { label: 'CPU Temp', value: val('cpu', 'cpu_temp_package'), unit: '\u00B0C', max: 110, warn: config.cpu_temp_warn || 85, crit: config.cpu_temp_critical || 95 },
+        ];
+
+        if (hasGpu) {
+            gaugeConfigs.push({ label: 'GPU Load', value: val('gpu', 'gpu_load'), unit: '%', max: 100, warn: 85, crit: 95 });
+            gaugeConfigs.push({ label: 'GPU Temp', value: val('gpu', 'gpu_temp'), unit: '\u00B0C', max: 110, warn: config.gpu_temp_warn || 80, crit: config.gpu_temp_critical || 90 });
+        }
+
+        gaugeConfigs.push({ label: 'RAM', value: val('memory', 'mem_percent'), unit: '%', max: 100, warn: config.ram_percent_warn || 85, crit: config.ram_percent_critical || 95 });
 
         var self = this;
         gaugeConfigs.forEach(function(gc) {
@@ -123,9 +156,8 @@ HumWatch.pages.overview = {
             card.appendChild(canvas);
             container.appendChild(card);
 
-            var val = gc.value ? gc.value.value : 0;
             var gauge = HumWatch.gauges.create(canvas, {
-                min: 0, max: gc.max, value: val || 0,
+                min: 0, max: gc.max, value: gc.value || 0,
                 label: gc.label, unit: gc.unit,
                 warnThreshold: gc.warn, critThreshold: gc.crit,
             });
