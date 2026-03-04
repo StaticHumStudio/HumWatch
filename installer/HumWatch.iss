@@ -141,44 +141,34 @@ Type: filesandordirs; Name: "{app}\__pycache__"
 ; User can manually delete {app} after uninstall if they want a clean removal
 
 [Code]
-// ── Upgrade detection ──────────────────────────────────────────────────────
-function GetUninstallString(): string;
-var
-  sUnInstPath: string;
-  sUnInstallString: string;
-begin
-  sUnInstPath := ExpandConstant('Software\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppGUID}_is1');
-  sUnInstallString := '';
-  if not RegQueryStringValue(HKLM, sUnInstPath, 'UninstallString', sUnInstallString) then
-    RegQueryStringValue(HKCU, sUnInstPath, 'UninstallString', sUnInstallString);
-  Result := sUnInstallString;
-end;
+// ── Service control ────────────────────────────────────────────────────────
+// Stop the HumWatch service before file copy so files aren't locked.
+// The [Run] section re-installs and starts the service after copy.
 
-function IsUpgrade(): Boolean;
-begin
-  Result := (GetUninstallString() <> '');
-end;
-
-function UnInstallOldVersion(): Integer;
+procedure StopHumWatchService();
 var
-  sUnInstallString: string;
+  NssmPath: string;
   iResultCode: Integer;
 begin
-  Result := 0;
-  sUnInstallString := GetUninstallString();
-  if sUnInstallString <> '' then begin
-    sUnInstallString := RemoveQuotes(sUnInstallString);
-    if Exec(sUnInstallString, '/SILENT /NORESTART /SUPPRESSMSGBOXES', '', SW_HIDE, ewWaitUntilTerminated, iResultCode) then
-      Result := iResultCode;
+  // Try the installed nssm first, then fall back to net stop
+  NssmPath := ExpandConstant('{app}\tools\nssm.exe');
+  if FileExists(NssmPath) then begin
+    Log('Stopping HumWatch service via nssm...');
+    Exec(NssmPath, 'stop HumWatch', '', SW_HIDE, ewWaitUntilTerminated, iResultCode);
+    Log('nssm stop exit code: ' + IntToStr(iResultCode));
+  end else begin
+    Log('nssm not found, trying net stop...');
+    Exec('net', 'stop HumWatch', '', SW_HIDE, ewWaitUntilTerminated, iResultCode);
+    Log('net stop exit code: ' + IntToStr(iResultCode));
   end;
+  // Brief pause to let OS release file handles
+  Sleep(1500);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssInstall then begin
-    if IsUpgrade() then begin
-      UnInstallOldVersion();
-    end;
+    StopHumWatchService();
   end;
 end;
 
