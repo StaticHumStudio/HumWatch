@@ -10,15 +10,15 @@
 
 ## 1. Project Overview
 
-HumWatch is a self-hosted, local-first hardware monitoring system for Windows PCs accessible over Tailscale. Each monitored PC runs a lightweight Python agent that collects full hardware telemetry — thermal, performance, battery, and system metrics — stores 7 days of history in a local SQLite database, and serves both a REST API and a web dashboard on a single port.
+HumWatch is a self-hosted, local-first hardware monitoring system for Windows PCs accessible over your local or overlay network. Each monitored PC runs a lightweight Python agent that collects full hardware telemetry — thermal, performance, battery, and system metrics — stores 7 days of history in a local SQLite database, and serves both a REST API and a web dashboard on a single port.
 
-There is no central server. Each PC is its own self-contained monitoring station. The dashboard includes a multi-machine view where the user enters Tailscale IPs of other HumWatch instances to see all their machines in one place.
+There is no central server. Each PC is its own self-contained monitoring station. The dashboard includes a multi-machine view with automatic peer discovery across LAN, Tailscale, ZeroTier, WireGuard, and other overlay networks.
 
 ### Design Philosophy
 
 - **Local-first:** All data stays on the machine that generated it. No cloud, no external dependencies.
 - **Zero-config discovery:** If a machine has a battery, battery metrics appear automatically. If it has a discrete GPU, GPU metrics appear. No configuration files to edit.
-- **Tailscale-native:** Designed to be accessed over a Tailscale mesh network. Binds to `0.0.0.0` by default so it's reachable via Tailscale IP.
+- **Network-agnostic:** Works over LAN, Tailscale, ZeroTier, WireGuard, or any overlay network. Binds to `0.0.0.0` by default so it's reachable from any interface.
 - **Themeable:** Ships with Static Hum Studio's signature aesthetic but uses a clean CSS custom property system so anyone can re-theme it in minutes.
 
 ---
@@ -44,10 +44,10 @@ There is no central server. Each PC is its own self-contained monitoring station
 │                                             │
 └─────────────────────────────────────────────┘
          ▲
-         │  HTTP over Tailscale
+         │  HTTP over LAN / overlay network
          ▼
 ┌─────────────────────────────────────────────┐
-│  Browser (any device on Tailnet)            │
+│  Browser (any device on network)            │
 │  ├── Single-machine view                    │
 │  └── Multi-machine dashboard                │
 └─────────────────────────────────────────────┘
@@ -161,7 +161,7 @@ CREATE TABLE machine_info (
     cpu_name TEXT,
     gpu_name TEXT,
     total_ram_mb INTEGER,
-    tailscale_ip TEXT,
+    network_ip TEXT,
     agent_version TEXT,
     last_boot TEXT,
     updated_at TEXT NOT NULL
@@ -214,7 +214,7 @@ All endpoints served from the same FastAPI instance on port 9100.
 GET /api/info
 ```
 
-Returns `machine_info` row: hostname, OS, CPU name, GPU name, RAM, Tailscale IP, agent version, last boot, uptime.
+Returns `machine_info` row: hostname, OS, CPU name, GPU name, RAM, network IP, agent version, last boot, uptime.
 
 ### 5.2 Current Readings
 
@@ -324,7 +324,7 @@ The dashboard is a vanilla JS single-page application served as static files by 
 
 The default landing page. Shows:
 
-- **Machine identity card:** Hostname, OS, CPU, GPU, RAM, uptime, Tailscale IP, agent version.
+- **Machine identity card:** Hostname, OS, CPU, GPU, RAM, uptime, network IP, agent version.
 - **Live gauges:** Circular/arc gauges for CPU temp, GPU temp, CPU load, GPU load, RAM usage. These update in real-time via SSE.
 - **Battery widget:** (Only if battery detected.) Shows charge %, plugged status, estimated time remaining, wear level as a health bar. Subtle animation when charging.
 - **Alert indicators:** Visual warning if any temp exceeds configurable thresholds (default: CPU > 85°C = warning amber, > 95°C = critical red; GPU > 80°C = warning, > 90°C = critical).
@@ -383,9 +383,9 @@ The default landing page. Shows:
 
 #### Multi-Machine View
 
-- User enters Tailscale IPs (or hostnames) of other HumWatch instances. These are saved in `localStorage`.
+- Peers are auto-discovered on the network (Tailscale, ZeroTier, LAN subnet scan). Users can also manually enter IPs or hostnames. Manual entries are saved in `localStorage`.
 - For each machine: shows a compact summary card (hostname, CPU temp, GPU temp, CPU load, RAM %, battery % if applicable, online/offline status).
-- Clicking a card opens that machine's full dashboard in a new tab (navigates to its Tailscale IP).
+- Clicking a card opens that machine's full dashboard in a new tab (navigates to its network IP).
 - Machines that don't respond to `/api/health` within 3 seconds show as "offline" with a muted card.
 - Auto-refreshes status every 30 seconds.
 
@@ -656,7 +656,7 @@ HumWatch/
 - Windows 10/11
 - Python 3.11+
 - Admin privileges (required for hardware sensor access)
-- Tailscale installed and connected
+- Network connectivity (LAN, Tailscale, ZeroTier, WireGuard, etc.)
 
 ### 10.2 Quick Start
 
@@ -675,7 +675,7 @@ python scripts/download-lhm.py
 python -m agent.main
 ```
 
-Access at `http://localhost:9100` or `http://<tailscale-ip>:9100`.
+Access at `http://localhost:9100` or `http://<network-ip>:9100`.
 
 ### 10.3 Install as Windows Service
 
@@ -768,18 +768,18 @@ The `resolution` query param can override this for custom requests.
 
 ### 11.5 Multi-Machine CORS
 
-Since each machine serves its own API, the multi-machine view on Machine A fetching data from Machine B is a cross-origin request. Configure FastAPI CORS middleware to allow all origins from private/Tailscale IP ranges:
+Since each machine serves its own API, the multi-machine view on Machine A fetching data from Machine B is a cross-origin request. Configure FastAPI CORS middleware to allow all origins from private/overlay network IP ranges:
 
 ```python
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Safe because only accessible on Tailnet
+    allow_origins=["*"],  # Safe because only accessible on local/overlay network
     allow_methods=["GET"],
     allow_headers=["*"],
 )
 ```
 
-This is safe because HumWatch is only accessible within the Tailscale mesh — there's no public exposure.
+This is safe because HumWatch is only accessible within the local or overlay network — there's no public exposure.
 
 ---
 
