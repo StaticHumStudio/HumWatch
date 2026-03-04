@@ -257,15 +257,26 @@
         padding-bottom: 80px; /* Space for bottom nav */
     }
 
+    .hw-page-header {
+        margin-bottom: var(--hw-space-sm);
+    }
+
+    .hw-grid {
+        gap: var(--hw-space-sm);
+    }
+
     .hw-grid-2,
     .hw-grid-3,
-    .hw-grid-4,
     .hw-grid-5 {
         grid-template-columns: 1fr;
     }
 
+    .hw-grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
     .hw-grid-auto {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
     }
 }
 

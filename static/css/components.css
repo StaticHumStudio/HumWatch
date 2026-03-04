@@ -506,6 +506,39 @@
     line-height: 1.4;
 }
 
+/* === MOBILE COMPACTNESS === */
+@media (max-width: 768px) {
+    .hw-card {
+        padding: var(--hw-space-sm);
+    }
+
+    .hw-card-header {
+        margin-bottom: var(--hw-space-sm);
+    }
+
+    .hw-gauge-container {
+        padding: var(--hw-space-sm);
+    }
+
+    .hw-gauge-canvas {
+        max-width: 110px;
+        max-height: 110px;
+    }
+
+    .hw-gauge-label {
+        margin-top: var(--hw-space-xs);
+    }
+
+    .hw-battery-widget {
+        padding: var(--hw-space-sm);
+    }
+
+    .hw-sparkline {
+        width: 100px;
+        height: 28px;
+    }
+}
+
 /* Dimmed nav item for unavailable features */
 .hw-nav-item.hw-nav-unavailable {
     opacity: 0.35;
