@@ -227,13 +227,26 @@ if ($SkipPythonDownload -and (Test-Path "$PyStageDirPath\python.exe")) {
     # install root (C:\HumWatch).
     $pthFile = Join-Path $PyStageDirPath "python$PyMajorMinor._pth"
     if (Test-Path $pthFile) {
-        $pthContent = Get-Content $pthFile -Raw
-        $pthContent = $pthContent -replace '#import site', 'import site'
-        # Ensure ".." is in the path list so the install root is always on sys.path
-        if ($pthContent -notmatch '(?m)^\.\.$') {
-            $pthContent = $pthContent -replace '(?m)^(\.)$', "`$1`r`n.."
+        $lines = [System.IO.File]::ReadAllLines($pthFile)
+        $newLines = [System.Collections.Generic.List[string]]::new()
+        $hasDotDot = $false
+        foreach ($line in $lines) {
+            # Uncomment "import site" if commented
+            if ($line.Trim() -eq "#import site") {
+                $newLines.Add("import site")
+            } else {
+                $newLines.Add($line)
+            }
+            # Insert ".." after "." if not already present
+            if ($line.Trim() -eq "." -and -not $hasDotDot) {
+                $hasDotDot = ($lines | Where-Object { $_.Trim() -eq ".." }).Count -gt 0
+                if (-not $hasDotDot) {
+                    $newLines.Add("..")
+                    $hasDotDot = $true
+                }
+            }
         }
-        Set-Content $pthFile $pthContent -NoNewline
+        [System.IO.File]::WriteAllLines($pthFile, $newLines.ToArray())
         Write-Ok "Enabled site-packages and parent-dir path in python$PyMajorMinor._pth"
     } else {
         Write-Warn "._pth file not found at: $pthFile"
@@ -273,10 +286,20 @@ if ($SkipPythonDownload -and (Test-Path "$PyStageDirPath\python.exe")) {
 # -SkipPythonDownload was used (the patching above only runs on fresh extract).
 $pthFile = Join-Path $PyStageDirPath "python$PyMajorMinor._pth"
 if (Test-Path $pthFile) {
-    $pthContent = Get-Content $pthFile -Raw
-    if ($pthContent -notmatch '(?m)^\.\.$') {
-        $pthContent = $pthContent -replace '(?m)^(\.)$', "`$1`r`n.."
-        Set-Content $pthFile $pthContent -NoNewline
+    $lines = [System.IO.File]::ReadAllLines($pthFile)
+    $hasDotDot = ($lines | Where-Object { $_.Trim() -eq ".." }).Count -gt 0
+    if (-not $hasDotDot) {
+        $newLines = [System.Collections.Generic.List[string]]::new()
+        $inserted = $false
+        foreach ($line in $lines) {
+            $newLines.Add($line)
+            if (-not $inserted -and $line.Trim() -eq ".") {
+                $newLines.Add("..")
+                $inserted = $true
+            }
+        }
+        if (-not $inserted) { $newLines.Add("..") }
+        [System.IO.File]::WriteAllLines($pthFile, $newLines.ToArray())
         Write-Ok "Patched python$PyMajorMinor._pth: added parent-dir (..)"
     }
 }
