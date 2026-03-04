@@ -31,79 +31,110 @@ A self-hosted, local-first hardware monitoring system for Windows PCs accessible
 | Fans | Individual fan RPMs |
 | Processes | Top processes by CPU and memory usage |
 
-## Quick Start
+## Requirements
+
+- **Windows 10 or 11**
+- **A web browser** for the dashboard
+- **Tailscale** *(optional)* — only needed for multi-machine access ([tailscale.com](https://tailscale.com/), free for personal use)
+
+## Installation
+
+### Installer (recommended)
+
+1. Download **`HumWatch-Setup-vX.X.X.exe`** from the [releases page](https://github.com/StaticHumStudio/HumWatch/releases)
+2. Run the installer — click **Yes** when Windows asks for admin access
+3. Follow the prompts (default install path `C:\HumWatch` is fine)
+
+The installer handles everything: bundled Python 3.12, all dependencies, LibreHardwareMonitor, Windows service registration, firewall rule, and auto-start on boot.
+
+Once installed, open **http://localhost:9100** in your browser.
+
+### From source (development)
 
 ```bash
-# Clone and enter the directory
 cd HumWatch
-
-# Install Python dependencies
 pip install -r requirements.txt
 
 # (Optional) Download LibreHardwareMonitor for full sensor access
 powershell -ExecutionPolicy Bypass -File scripts\download-lhm.ps1
 
-# Start the agent
 python -m agent.main
 ```
 
-Open **http://localhost:9100** in your browser.
-
 Without LibreHardwareMonitor, HumWatch runs in psutil-only mode — you get CPU load, memory, disk, network, and battery basics. With LHM, you also get temperatures, voltages, GPU metrics, fan speeds, and more.
 
-## Install as a Windows Service
-
-HumWatch can run as a background service that starts automatically with Windows.
+### Install as a Windows Service (from source)
 
 ```powershell
 # Run as Administrator
 powershell -ExecutionPolicy Bypass -File scripts\install-service.ps1
 ```
 
-The installer will automatically download NSSM if needed, prefer a project-local `venv`, create/install dependencies when `venv` is missing, and configure delayed auto-start + restart recovery for better reboot reliability.
-
-This registers HumWatch as an auto-start service with log rotation. Manage it with:
-
-```
-nssm status HumWatch
-nssm stop HumWatch
-nssm start HumWatch
-nssm restart HumWatch
-```
-
-To remove the service:
+This registers HumWatch as an auto-start service with log rotation. To remove:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\uninstall-service.ps1
 ```
 
+## Dashboard
 
-If the service fails to start after install or reboot:
+The dashboard sidebar contains these pages:
 
-1. Re-run installer as Admin (it now performs a health check and prints recent stderr lines):
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File scripts\install-service.ps1
-   ```
-2. Check service status:
-   ```powershell
-   nssm status HumWatch
-   ```
-3. Review logs in `logs/humwatch-stdout.log` and `logs/humwatch-stderr.log`.
-4. Confirm verification output:
-   ```powershell
-   .\venv\Scripts\python.exe -m agent.verify
-   ```
+| Page | Description |
+|------|-------------|
+| **Overview** | CPU load, GPU load, RAM usage, temps, battery at a glance |
+| **CPU** | Per-core load, temperatures, clock speeds, power draw |
+| **GPU** | Temperature, load, VRAM, fan speed (only with a dedicated GPU) |
+| **Memory** | RAM and swap usage over time, top memory consumers |
+| **Disk** | Read/write speeds, volume usage, drive temperatures |
+| **Network** | Upload/download rates, cumulative transfer |
+| **Battery** | Charge level, charge rate, health/wear (laptops only) |
+| **Processes** | Top 10 resource-consuming processes, updated live |
+| **Machines** | Multi-machine view with status cards |
+| **Settings** | Themes, alert thresholds, configuration |
+
+The connection indicator in the sidebar shows: **green** = live, **amber** = reconnecting, **gray** = disconnected.
 
 ## Multi-Machine Setup
 
 HumWatch is designed for Tailscale networks. Each PC runs its own HumWatch instance.
 
-1. Install and start HumWatch on each machine
-2. On any machine's dashboard, go to **Machines**
-3. Enter the Tailscale IP (e.g., `100.64.0.2`) of another machine
-4. The dashboard shows live status cards for all your machines
+1. Install [Tailscale](https://tailscale.com/) on every machine and sign in
+2. Install HumWatch on each machine you want to monitor
+3. From any machine's dashboard, go to **Machines** and add the Tailscale IP (`100.64.x.x`) of other machines
+4. Click any machine card to open its full dashboard
 
-Each machine's data stays local. The multi-machine view fetches live snapshots over HTTP.
+IPs are saved per-browser. HumWatch also attempts automatic discovery of other instances on your Tailscale network.
+
+## Managing the Service
+
+| Action | Command |
+|--------|---------|
+| Check status | `nssm status HumWatch` |
+| Stop | `nssm stop HumWatch` |
+| Start | `nssm start HumWatch` |
+| Restart | `nssm restart HumWatch` |
+
+Run these from an **Administrator PowerShell**. NSSM lives at `C:\HumWatch\tools\nssm.exe`.
+
+### Uninstalling
+
+Use **Windows Settings > Apps** (or **Control Panel > Programs and Features**) to uninstall HumWatch. The uninstaller stops and removes the service before deleting files.
+
+## Configuration
+
+HumWatch reads from `config.json` at the install root. Environment variables take precedence.
+
+| Setting | Config Key | Env Var | Default |
+|---------|-----------|---------|---------|
+| Port | `port` | `HUMWATCH_PORT` | `9100` |
+| Collection interval | `collection_interval_seconds` | `HUMWATCH_INTERVAL` | `10` |
+| Data retention | `retention_days` | — | `7` |
+| Database path | `db_path` | `HUMWATCH_DB` | `humwatch.db` |
+
+Alert thresholds (CPU/GPU temp, RAM/disk usage, battery level) can be set in `config.json` or overridden per-browser in the Settings page.
+
+After editing `config.json`, restart the service: `nssm restart HumWatch`
 
 ## Theming
 
@@ -119,18 +150,24 @@ Switch themes from **Settings** in the dashboard.
 
 To create your own theme, see [THEMING.md](THEMING.md).
 
-## Configuration
+## Troubleshooting
 
-HumWatch reads from `config.json` at the project root. Environment variables take precedence.
+**Can't open localhost:9100** — Check that the service is running: `nssm status HumWatch`. If stopped, run `nssm start HumWatch`. If port 9100 is taken, change `port` in `config.json` and restart the service.
 
-| Setting | Config Key | Env Var | Default |
-|---------|-----------|---------|---------|
-| Port | `port` | `HUMWATCH_PORT` | `9100` |
-| Collection interval | `collection_interval_seconds` | `HUMWATCH_INTERVAL` | `10` |
-| Data retention | `retention_days` | — | `7` |
-| Database path | `db_path` | `HUMWATCH_DB` | `humwatch.db` |
+**No temperatures or fan speeds** — Restart the service. Some hardware isn't supported by LibreHardwareMonitor. Check `C:\HumWatch\logs\humwatch-stderr.log` for errors.
 
-Alert thresholds (CPU/GPU temp warn/critical, RAM warn/critical) can be set in `config.json` or overridden per-browser in the Settings page.
+**GPU section missing** — Normal if you only have integrated graphics. LibreHardwareMonitor can't read sensors on some integrated GPUs.
+
+**Battery section missing** — Normal on desktops.
+
+**Can't reach Machine A from Machine B** — Verify Tailscale is running on both machines, HumWatch is running on Machine A, and you can ping Machine A's Tailscale IP. If the firewall rule is missing:
+```powershell
+netsh advfirewall firewall add rule name="HumWatch" dir=in action=allow protocol=TCP localport=9100
+```
+
+**Dashboard says "Disconnected"** — Usually resolves in seconds. If not, check that the service is running and hard-refresh the browser (`Ctrl+Shift+R`).
+
+**Database growing large** — Reduce `retention_days` in `config.json` and restart the service.
 
 ## API
 
