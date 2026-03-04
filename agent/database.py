@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS machine_info (
     cpu_name TEXT,
     gpu_name TEXT,
     total_ram_mb INTEGER,
-    tailscale_ip TEXT,
+    network_ip TEXT,
     agent_version TEXT,
     last_boot TEXT,
     updated_at TEXT NOT NULL
@@ -81,8 +81,24 @@ async def init_db() -> aiosqlite.Connection:
     await _db.executescript(SCHEMA_SQL)
     await _db.commit()
 
+    # Run one-time migrations
+    await _migrate_schema(_db)
+
     logger.info("Database initialized successfully")
     return _db
+
+
+async def _migrate_schema(db: aiosqlite.Connection) -> None:
+    """Run one-time schema migrations for existing installs."""
+    cursor = await db.execute("PRAGMA table_info(machine_info)")
+    columns = [row[1] for row in await cursor.fetchall()]
+
+    if "tailscale_ip" in columns and "network_ip" not in columns:
+        await db.execute(
+            "ALTER TABLE machine_info RENAME COLUMN tailscale_ip TO network_ip"
+        )
+        await db.commit()
+        logger.info("Migrated column tailscale_ip -> network_ip")
 
 
 async def get_db() -> aiosqlite.Connection:

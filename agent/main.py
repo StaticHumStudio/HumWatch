@@ -88,7 +88,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS — safe because only accessible on Tailnet
+    # CORS — safe because only accessible on local/overlay network
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

@@ -2,7 +2,7 @@
 
 **"What hums beneath the shell."**
 
-A self-hosted, local-first hardware monitoring system for Windows PCs accessible over Tailscale.
+A self-hosted, local-first hardware monitoring system for Windows PCs.
 
 ---
 
@@ -16,7 +16,7 @@ A self-hosted, local-first hardware monitoring system for Windows PCs accessible
 - **Zero-config discovery** — GPU and battery sections appear automatically when hardware is present
 - **Themeable** — ships with three themes, easy to create your own
 - **Local-first** — no cloud, no accounts, all data stays on your machine
-- **Tailscale-native** — designed for access over your mesh network
+- **Network-agnostic** — works over LAN, Tailscale, ZeroTier, WireGuard, or any overlay network
 
 ## What It Monitors
 
@@ -35,7 +35,7 @@ A self-hosted, local-first hardware monitoring system for Windows PCs accessible
 
 - **Windows 10 or 11**
 - **A web browser** for the dashboard
-- **Tailscale** *(optional)* — only needed for multi-machine access ([tailscale.com](https://tailscale.com/), free for personal use)
+- **Overlay network** *(optional)* — Tailscale, ZeroTier, WireGuard, or similar for multi-machine access across networks
 
 ## Installation
 
@@ -97,14 +97,14 @@ The connection indicator in the sidebar shows: **green** = live, **amber** = rec
 
 ## Multi-Machine Setup
 
-HumWatch is designed for Tailscale networks. Each PC runs its own HumWatch instance.
+Each PC runs its own HumWatch instance. Machines on the same LAN or overlay network (Tailscale, ZeroTier, WireGuard, etc.) can monitor each other.
 
-1. Install [Tailscale](https://tailscale.com/) on every machine and sign in
+1. Ensure machines can reach each other over the network (same LAN, VPN, or overlay network)
 2. Install HumWatch on each machine you want to monitor
-3. From any machine's dashboard, go to **Machines** and add the Tailscale IP (`100.64.x.x`) of other machines
+3. From any machine's dashboard, go to **Machines** and add the IP address of other machines
 4. Click any machine card to open its full dashboard
 
-IPs are saved per-browser. HumWatch also attempts automatic discovery of other instances on your Tailscale network.
+IPs are saved per-browser. HumWatch auto-discovers other instances on your local subnet and via Tailscale/ZeroTier CLI if installed.
 
 ## Managing the Service
 
@@ -160,7 +160,7 @@ To create your own theme, see [THEMING.md](THEMING.md).
 
 **Battery section missing** — Normal on desktops.
 
-**Can't reach Machine A from Machine B** — Verify Tailscale is running on both machines, HumWatch is running on Machine A, and you can ping Machine A's Tailscale IP. If the firewall rule is missing:
+**Can't reach Machine A from Machine B** — Verify both machines are on the same network (LAN or overlay), HumWatch is running on Machine A, and you can ping Machine A's IP. If the firewall rule is missing:
 ```powershell
 netsh advfirewall firewall add rule name="HumWatch" dir=in action=allow protocol=TCP localport=9100
 ```
@@ -176,7 +176,7 @@ HumWatch exposes a REST API on the same port as the dashboard.
 | Endpoint | Description |
 |----------|-------------|
 | `GET /api/health` | Agent status, version, uptime |
-| `GET /api/info` | Machine identity (hostname, OS, CPU, GPU, RAM, Tailscale IP) |
+| `GET /api/info` | Machine identity (hostname, OS, CPU, GPU, RAM, network IP) |
 | `GET /api/config` | Current configuration and thresholds |
 | `GET /api/current` | Latest readings grouped by category |
 | `GET /api/history?metric=cpu_temp_package&from=...&to=...` | Historical time-series (auto-downsampled) |

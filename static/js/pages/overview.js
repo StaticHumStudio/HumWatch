@@ -181,7 +181,7 @@ HumWatch.pages.overview = {
                 '<span class="hw-info-label">CPU</span><span class="hw-info-value">' + (info.cpu_name || '--') + '</span>' +
                 '<span class="hw-info-label">GPU</span><span class="hw-info-value">' + (info.gpu_name || 'N/A') + '</span>' +
                 '<span class="hw-info-label">RAM</span><span class="hw-info-value">' + HumWatch.utils.formatMB(info.total_ram_mb) + '</span>' +
-                '<span class="hw-info-label">Tailscale</span><span class="hw-info-value">' + (info.tailscale_ip || 'N/A') + '</span>' +
+                '<span class="hw-info-label">Network IP</span><span class="hw-info-value">' + (info.network_ip || 'N/A') + '</span>' +
                 '<span class="hw-info-label">Uptime</span><span class="hw-info-value" id="ov-uptime">' + HumWatch.utils.formatUptime(info.uptime_seconds) + '</span>' +
                 '<span class="hw-info-label">Agent</span><span class="hw-info-value">v' + (info.agent_version || '--') + '</span>' +
             '</div>';

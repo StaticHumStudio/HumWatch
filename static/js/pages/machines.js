@@ -1,5 +1,5 @@
 /**
- * HumWatch — Multi-machine view with Tailscale auto-discovery.
+ * HumWatch — Multi-machine view with network auto-discovery.
  */
 window.HumWatch = window.HumWatch || {};
 HumWatch.pages = HumWatch.pages || {};
@@ -11,10 +11,10 @@ HumWatch.pages.machines = {
     init: function(container) {
         var self = this;
         container.innerHTML =
-            '<div class="hw-page-header"><h2>Machines</h2><div class="hw-subtitle">Monitor HumWatch instances across your Tailnet</div></div>' +
+            '<div class="hw-page-header"><h2>Machines</h2><div class="hw-subtitle">Monitor HumWatch instances across your network</div></div>' +
             '<div class="hw-card" style="margin-bottom:var(--hw-space-md)">' +
                 '<div style="display:flex;gap:var(--hw-space-sm);align-items:center">' +
-                    '<input class="hw-input" id="machine-ip-input" placeholder="Tailscale IP or hostname (e.g. 100.64.0.2)" style="flex:1">' +
+                    '<input class="hw-input" id="machine-ip-input" placeholder="IP address or hostname" style="flex:1">' +
                     '<input class="hw-input" id="machine-label-input" placeholder="Label (optional)" style="width:150px">' +
                     '<button class="hw-btn hw-btn-primary" id="machine-add-btn">Add</button>' +
                 '</div>' +
@@ -98,7 +98,7 @@ HumWatch.pages.machines = {
             // Build set of auto-discovered IPs for dedup
             var discoveredIps = {};
             peers.forEach(function(p) {
-                discoveredIps[p.tailscale_ip] = true;
+                discoveredIps[p.network_ip] = true;
             });
 
             // Filter out manual entries that overlap with auto-discovered peers
@@ -118,9 +118,9 @@ HumWatch.pages.machines = {
                 if (peers.length > 0) {
                     statusEl.innerHTML =
                         '<i data-lucide="radio" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:4px"></i>' +
-                        onlineCount + ' auto-discovered on Tailnet';
+                        onlineCount + ' auto-discovered on network';
                 } else {
-                    statusEl.textContent = 'Tailscale discovery inactive \u2014 add machines manually below';
+                    statusEl.textContent = 'Network discovery inactive \u2014 add machines manually below';
                 }
                 if (window.lucide) lucide.createIcons();
             }
@@ -145,7 +145,7 @@ HumWatch.pages.machines = {
                         '<i data-lucide="server"></i>' +
                         '<p>No machines found.</p>' +
                         '<p style="color:var(--hw-text-tertiary);font-size:var(--hw-font-size-sm);margin-top:8px">' +
-                        'Install HumWatch on other Tailnet machines for auto-discovery, or add an IP above.</p>' +
+                        'Install HumWatch on other machines on your network for auto-discovery, or add an IP above.</p>' +
                     '</div></div>';
                 if (window.lucide) lucide.createIcons();
             }
@@ -160,7 +160,7 @@ HumWatch.pages.machines = {
                         '<i data-lucide="server"></i>' +
                         '<p>No machines added yet.</p>' +
                         '<p style="color:var(--hw-text-tertiary);font-size:var(--hw-font-size-sm);margin-top:8px">' +
-                        'Enter a Tailscale IP above to start monitoring.</p>' +
+                        'Enter an IP address above to start monitoring.</p>' +
                     '</div></div>';
                 if (window.lucide) lucide.createIcons();
                 return;
@@ -175,9 +175,9 @@ HumWatch.pages.machines = {
     /* ── Auto-discovered peer card ── */
 
     _renderDiscoveredPeer: function(peer, grid) {
-        var cardId = 'machine-' + peer.tailscale_ip.replace(/\./g, '_');
+        var cardId = 'machine-' + peer.network_ip.replace(/\./g, '_');
         var online = peer.status === 'online';
-        var label = peer.hostname || peer.tailscale_ip;
+        var label = peer.hostname || peer.network_ip;
         if (peer.is_self) label += ' (this machine)';
 
         var osShort = (peer.os_version || '').substring(0, 35);
@@ -194,7 +194,7 @@ HumWatch.pages.machines = {
                     '</div>' +
                 '</div>' +
                 '<div class="hw-machine-metrics">' +
-                    '<span style="color:var(--hw-text-tertiary)">IP</span><span>' + peer.tailscale_ip + '</span>' +
+                    '<span style="color:var(--hw-text-tertiary)">IP</span><span>' + peer.network_ip + '</span>' +
                     '<span style="color:var(--hw-text-tertiary)">OS</span><span style="font-size:var(--hw-font-size-sm)">' + (osShort || '--') + '</span>' +
                     '<span style="color:var(--hw-text-tertiary)">CPU</span><span style="font-size:var(--hw-font-size-sm)">' + (cpuShort || '--') + '</span>' +
                     '<span style="color:var(--hw-text-tertiary)">GPU</span><span style="font-size:var(--hw-font-size-sm)">' + (peer.gpu_name || '--') + '</span>' +

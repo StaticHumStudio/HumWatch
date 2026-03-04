@@ -1,4 +1,4 @@
-"""Peer discovery endpoint — returns HumWatch instances found on the Tailnet."""
+"""Peer discovery endpoint — returns HumWatch instances found on the network."""
 
 from fastapi import APIRouter
 
