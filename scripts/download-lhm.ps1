@@ -15,8 +15,8 @@
 
 $ErrorActionPreference = "Stop"
 
-$LHM_VERSION = "0.9.4"
-$RELEASE_URL = "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v${LHM_VERSION}/LibreHardwareMonitor-net472.zip"
+$LHM_VERSION = "0.9.6"
+$RELEASE_URL = "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v${LHM_VERSION}/LibreHardwareMonitor.zip"
 
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $LibDir = Join-Path $ProjectRoot "lib"
@@ -25,6 +25,31 @@ $TempExtract = Join-Path $env:TEMP "lhm-extract"
 
 Write-Host "HumWatch - LibreHardwareMonitor Downloader" -ForegroundColor Yellow
 Write-Host "==========================================="
+Write-Host ""
+
+# --- PawnIO driver (replaces WinRing0, required by LHM v0.9.5+) ---
+Write-Host "[*] Checking for PawnIO driver..." -ForegroundColor Yellow
+$pawnInstalled = $false
+try {
+    $wingetList = winget list --id PawnIO.PawnIO 2>&1
+    if ($wingetList -match "PawnIO") {
+        $pawnInstalled = $true
+    }
+} catch {}
+
+if ($pawnInstalled) {
+    Write-Host "[+] PawnIO is already installed" -ForegroundColor Green
+} else {
+    Write-Host "[*] Installing PawnIO driver (replaces deprecated WinRing0)..." -ForegroundColor Yellow
+    try {
+        winget install PawnIO.PawnIO --accept-source-agreements --accept-package-agreements
+        Write-Host "[+] PawnIO installed successfully" -ForegroundColor Green
+    } catch {
+        Write-Host "[!] PawnIO installation failed: $_" -ForegroundColor Red
+        Write-Host "    Install manually: winget install PawnIO.PawnIO" -ForegroundColor Yellow
+        Write-Host "    HumWatch will still work in psutil-only mode without it." -ForegroundColor Yellow
+    }
+}
 Write-Host ""
 
 # Create lib directory

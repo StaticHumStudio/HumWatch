@@ -348,10 +348,10 @@ if (Test-Path $LhmDll) {
     Copy-Item "$LhmLibDir\*" $LhmStageDir -Force
     Write-Ok "Copied LHM DLLs from lib/"
 } else {
-    $lhmVersion = "0.9.4"
+    $lhmVersion = "0.9.6"
     $lhmZip     = Join-Path $env:TEMP "lhm.zip"
     $lhmExtract = Join-Path $env:TEMP "lhm-extract"
-    $lhmUrl     = "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v$lhmVersion/LibreHardwareMonitor-net472.zip"
+    $lhmUrl     = "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v$lhmVersion/LibreHardwareMonitor.zip"
     $ok = Get-FileFromUrl $lhmUrl $lhmZip "LibreHardwareMonitor $lhmVersion"
     if (-not $ok) { Write-Fail "LHM download failed." }
     Expand-Archive -Path $lhmZip -DestinationPath $lhmExtract -Force

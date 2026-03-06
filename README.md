@@ -56,12 +56,15 @@ cd HumWatch
 pip install -r requirements.txt
 
 # (Optional) Download LibreHardwareMonitor for full sensor access
+# Also installs the PawnIO driver (replaces deprecated WinRing0)
 powershell -ExecutionPolicy Bypass -File scripts\download-lhm.ps1
 
 python -m agent.main
 ```
 
 Without LibreHardwareMonitor, HumWatch runs in psutil-only mode — you get CPU load, memory, disk, network, and battery basics. With LHM, you also get temperatures, voltages, GPU metrics, fan speeds, and more.
+
+> **Note:** LHM v0.9.5+ requires the [PawnIO](https://github.com/PawnIO/PawnIO) driver (replaces the deprecated WinRing0 driver). The `download-lhm.ps1` script installs it automatically via `winget`. To install manually: `winget install PawnIO.PawnIO`
 
 ### Install as a Windows Service (from source)
 

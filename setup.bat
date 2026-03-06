@@ -89,22 +89,22 @@ if exist "%ROOT%\lib\LibreHardwareMonitorLib.dll" (
 ) else (
     powershell -ExecutionPolicy Bypass -Command ^
         "$ProgressPreference='SilentlyContinue'; " ^
-        "$v='0.9.4'; " ^
-        "$url='https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v' + $v + '/LibreHardwareMonitor-net472.zip'; " ^
+        "$v='0.9.6'; " ^
+        "$url='https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v' + $v + '/LibreHardwareMonitor.zip'; " ^
         "$zip=Join-Path $env:TEMP 'lhm.zip'; " ^
         "$ext=Join-Path $env:TEMP 'lhm-ext'; " ^
         "$lib='%ROOT%\lib'; " ^
         "New-Item -ItemType Directory -Path $lib -Force | Out-Null; " ^
         "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; " ^
         "$ok=$false; " ^
-        "Write-Host '  Downloading LHM v0.9.4 (attempt 1: Invoke-WebRequest)...'; " ^
+        "Write-Host '  Downloading LHM v0.9.6 (attempt 1: Invoke-WebRequest)...'; " ^
         "try { Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing -TimeoutSec 60; $ok=$true } catch { Write-Host \"  Attempt 1 failed: $_\" }; " ^
         "if (-not $ok) { " ^
-        "  Write-Host '  Downloading LHM v0.9.4 (attempt 2: WebClient)...'; " ^
+        "  Write-Host '  Downloading LHM v0.9.6 (attempt 2: WebClient)...'; " ^
         "  try { (New-Object System.Net.WebClient).DownloadFile($url, $zip); $ok=$true } catch { Write-Host \"  Attempt 2 failed: $_\" } " ^
         "}; " ^
         "if (-not $ok) { " ^
-        "  Write-Host '  Downloading LHM v0.9.4 (attempt 3: curl)...'; " ^
+        "  Write-Host '  Downloading LHM v0.9.6 (attempt 3: curl)...'; " ^
         "  try { curl.exe -sL -o $zip $url --connect-timeout 30; if (Test-Path $zip) { $ok=$true } } catch { Write-Host \"  Attempt 3 failed: $_\" } " ^
         "}; " ^
         "if ($ok -and (Test-Path $zip)) { " ^
