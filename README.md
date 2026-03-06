@@ -45,7 +45,7 @@ A self-hosted, local-first hardware monitoring system for Windows PCs.
 2. Run the installer — click **Yes** when Windows asks for admin access
 3. Follow the prompts (default install path `C:\HumWatch` is fine)
 
-The installer handles everything: bundled Python 3.12, all dependencies, LibreHardwareMonitor, Windows service registration, firewall rule, and auto-start on boot.
+The installer handles everything: bundled Python 3.12, all dependencies, LibreHardwareMonitor (v0.9.6 + PawnIO driver), Windows service registration, firewall rule, and auto-start on boot.
 
 Once installed, open **http://localhost:9100** in your browser.
 
