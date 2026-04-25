@@ -2,7 +2,7 @@
 
 **"What hums beneath the shell."**
 
-A self-hosted, local-first hardware monitoring system for Windows PCs.
+A self-hosted, local-first hardware monitoring system for Windows and Linux PCs.
 
 ---
 
@@ -33,7 +33,7 @@ A self-hosted, local-first hardware monitoring system for Windows PCs.
 
 ## Requirements
 
-- **Windows 10 or 11**
+- **Windows 10/11** *or* **Linux** (any distro with `/sys/class/hwmon`)
 - **A web browser** for the dashboard
 - **Overlay network** *(optional)* — Tailscale, ZeroTier, WireGuard, or similar for multi-machine access across networks
 
@@ -78,6 +78,31 @@ This registers HumWatch as an auto-start service with log rotation. To remove:
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\uninstall-service.ps1
 ```
+
+### Linux (from source)
+
+On Linux, HumWatch reads sensors directly from `/sys/class/hwmon`,
+`/sys/class/drm`, and `/proc/cpuinfo`... no LHM, no extra drivers.
+
+```bash
+cd HumWatch
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m agent.main
+```
+
+To install as a systemd service, edit paths in `humwatch.service` if
+needed, then:
+
+```bash
+sudo cp humwatch.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now humwatch
+```
+
+Check status with `systemctl status humwatch` and logs with
+`journalctl -u humwatch -f`.
 
 ## Dashboard
 
@@ -192,7 +217,7 @@ All timestamps are ISO 8601 UTC. History queries are automatically downsampled b
 ## Tech Stack
 
 - **Agent:** Python 3.10+, FastAPI, Uvicorn, psutil, aiosqlite
-- **Sensors:** LibreHardwareMonitor (optional, via pythonnet)
+- **Sensors:** LibreHardwareMonitor on Windows (optional, via pythonnet); `/sys/class/hwmon` + `/sys/class/drm` on Linux
 - **Database:** SQLite in WAL mode
 - **Dashboard:** Vanilla JavaScript, Chart.js 4, Lucide Icons
 - **Fonts:** Inter, JetBrains Mono (Google Fonts CDN)
