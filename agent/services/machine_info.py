@@ -13,6 +13,25 @@ from agent.database import get_db
 
 logger = logging.getLogger("humwatch.services.machine_info")
 
+
+def _get_cpu_name() -> str:
+    """Get CPU model name, with Linux /proc/cpuinfo fallback."""
+    # platform.processor() often returns empty string or just "x86_64" on Linux
+    name = platform.processor()
+    if name and name not in ("x86_64", "aarch64", "i686", "unknown"):
+        return name
+
+    # Read the actual model name from /proc/cpuinfo
+    try:
+        with open("/proc/cpuinfo", "r") as f:
+            for line in f:
+                if line.startswith("model name"):
+                    return line.split(":", 1)[1].strip()
+    except (OSError, IOError):
+        pass
+
+    return "Unknown CPU"
+
 # Known overlay/VPN interface name patterns (case-insensitive substring match)
 _OVERLAY_IFACE_PATTERNS = [
     "tailscale",
@@ -80,7 +99,7 @@ async def update_machine_info(gpu_name: str = None):
 
     hostname = socket.gethostname()
     os_version = platform.platform()
-    cpu_name = platform.processor() or "Unknown CPU"
+    cpu_name = _get_cpu_name()
     total_ram_mb = int(psutil.virtual_memory().total / (1024 * 1024))
     network_ip = _get_network_ip()
     boot_time = datetime.fromtimestamp(psutil.boot_time(), tz=timezone.utc).isoformat()

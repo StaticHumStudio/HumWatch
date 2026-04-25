@@ -1,0 +1,15 @@
+[Unit]
+Description=HumWatch Hardware Monitor
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/static/projects/HumWatch
+ExecStart=/home/static/projects/HumWatch/.venv/bin/python -m agent.main
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

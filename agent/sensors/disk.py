@@ -1,6 +1,7 @@
 """Disk metrics: I/O rates, volume usage, temperatures."""
 
 import logging
+import platform
 import time
 from typing import Dict, List, Optional, Tuple
 
@@ -9,6 +10,18 @@ import psutil
 from agent.sensors.base import BaseSensor, MetricReading
 
 logger = logging.getLogger("humwatch.sensors.disk")
+
+_IS_LINUX = platform.system() == "Linux"
+
+# On Linux, map mount points to short labels for metric names
+_LINUX_MOUNT_LABELS = {
+    "/": "root",
+    "/home": "home",
+    "/boot": "boot",
+    "/boot/efi": "efi",
+    "/tmp": "tmp",
+    "/var": "var",
+}
 
 
 class DiskSensor(BaseSensor):
@@ -30,11 +43,20 @@ class DiskSensor(BaseSensor):
             for part in partitions:
                 try:
                     usage = psutil.disk_usage(part.mountpoint)
-                    # Extract drive letter (e.g., "C" from "C:\")
-                    drive = part.mountpoint.rstrip(":\\/ ").upper()
-                    if drive:
+                    if _IS_LINUX:
+                        # Skip snap loopback mounts (squashfs, always 100%)
+                        if "/snap/" in part.mountpoint or part.fstype == "squashfs":
+                            continue
+                        # Use a short label for known mount points, otherwise sanitize the path
+                        label = _LINUX_MOUNT_LABELS.get(part.mountpoint)
+                        if label is None:
+                            label = part.mountpoint.strip("/").replace("/", "_") or "root"
+                    else:
+                        # Windows: extract drive letter (e.g., "C" from "C:\")
+                        label = part.mountpoint.rstrip(":\\/ ").upper()
+                    if label:
                         readings.append(MetricReading(
-                            "disk", f"disk_usage_{drive}", usage.percent, "%"
+                            "disk", f"disk_usage_{label}", usage.percent, "%"
                         ))
                 except (PermissionError, OSError):
                     pass

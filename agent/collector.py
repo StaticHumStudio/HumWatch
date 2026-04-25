@@ -1,7 +1,8 @@
-"""Main collection loop — orchestrates sensor polling, LHM thread, DB writes, and SSE pub/sub."""
+"""Main collection loop — orchestrates sensor polling, LHM/hwmon thread, DB writes, and SSE pub/sub."""
 
 import asyncio
 import logging
+import platform
 import queue
 import threading
 import time
@@ -21,6 +22,8 @@ from agent.sensors.cpu import CpuSensor
 from agent.sensors.gpu import GpuSensor
 from agent.sensors.fan import FanSensor
 from agent.sensors.battery import BatterySensor
+
+IS_LINUX = platform.system() == "Linux"
 
 logger = logging.getLogger("humwatch.collector")
 
@@ -101,8 +104,48 @@ async def _publish(data: dict) -> None:
 
 # --- LHM Thread ---
 
+def _linux_hwmon_worker():
+    """Dedicated thread for Linux hwmon/sysfs sensor reading."""
+    global _lhm_available, _gpu_name
+
+    from agent.sensors.linux_hwmon import init as hwmon_init, read_sensors, get_gpu_name
+
+    try:
+        hwmon_init()
+        _lhm_available = True
+        _gpu_name = get_gpu_name()
+        logger.info("Linux hwmon initialized successfully")
+    except Exception as e:
+        logger.warning("Linux hwmon init failed: %s", e)
+        _lhm_available = False
+        return
+
+    first_run = True
+    while not _lhm_stop_event.is_set():
+        if not first_run:
+            if _lhm_stop_event.wait(timeout=get_config().collection_interval_seconds):
+                break
+        first_run = False
+        try:
+            data = read_sensors()
+            if data:
+                logger.debug("hwmon read %d metrics: %s", len(data), list(data.keys()))
+            try:
+                _lhm_queue.put_nowait(data)
+            except queue.Full:
+                try:
+                    _lhm_queue.get_nowait()
+                except queue.Empty:
+                    pass
+                _lhm_queue.put_nowait(data)
+        except Exception as e:
+            logger.error("hwmon read error: %s", e)
+
+    logger.info("Linux hwmon worker thread stopped")
+
+
 def _lhm_worker():
-    """Dedicated thread for LibreHardwareMonitor sensor reading."""
+    """Dedicated thread for LibreHardwareMonitor sensor reading (Windows)."""
     global _lhm_available, _gpu_name
 
     try:
@@ -371,9 +414,15 @@ async def start_collector():
     """Start the collection loop and LHM thread."""
     global _collector_task, _lhm_thread
 
-    # Start LHM thread
+    # Start hardware sensor thread (Linux hwmon or Windows LHM)
     _lhm_stop_event.clear()
-    _lhm_thread = threading.Thread(target=_lhm_worker, name="lhm-worker", daemon=True)
+    if IS_LINUX:
+        worker = _linux_hwmon_worker
+        worker_name = "hwmon-worker"
+    else:
+        worker = _lhm_worker
+        worker_name = "lhm-worker"
+    _lhm_thread = threading.Thread(target=worker, name=worker_name, daemon=True)
     _lhm_thread.start()
 
     # Give LHM time to initialize and do its first read
