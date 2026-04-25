@@ -1,7 +1,7 @@
 {
     "port": 9100,
     "collection_interval_seconds": 10,
-    "retention_days": 7,
+    "retention_days": 365,
     "db_path": "./humwatch.db",
     "theme_override": null,
     "alert_thresholds": {

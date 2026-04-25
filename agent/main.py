@@ -131,7 +131,7 @@ if __name__ == "__main__":
     config = get_config()
     uvicorn.run(
         "agent.main:app",
-        host="0.0.0.0",
+        host="100.69.53.12",
         port=config.port,
         log_level="info",
     )
